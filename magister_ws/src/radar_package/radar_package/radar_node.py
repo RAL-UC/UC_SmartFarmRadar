@@ -7,7 +7,7 @@ import time
 import numpy as np
 # mensajes de ros
 #from std_msgs.msg import Float32MultiArray
-from radar_msg.msg import matriz_2D
+from radar_msg.msg import RadarData
 
 # herencia de node al instanciar se registra en el grafo de ROS2
 class RadarNode(Node):
@@ -41,7 +41,7 @@ class RadarNode(Node):
 
         # --- Publisher ---
         # clase de mensaje, nombre del topico, tamaño de buffer
-        self.pub_matrix = self.create_publisher(matriz_2D, 'radar_data', 10)
+        self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
 
         # Lanzar barrido tras 1 s
         self.create_timer(1.0, self._do_sweep, oneshot=True)
@@ -168,7 +168,7 @@ class RadarNode(Node):
             radar_data_matriz.append(s_db)
         
         mat = np.vstack(radar_data_matriz)            # shape (161,4096)
-        msg = matriz_2D()
+        msg = RadarData()
         msg.rows = mat.shape[0]
         msg.cols = mat.shape[1]
         msg.dtype = str(mat.dtype)         # "float64"
