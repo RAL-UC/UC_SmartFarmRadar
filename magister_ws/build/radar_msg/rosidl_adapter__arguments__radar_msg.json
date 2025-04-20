@@ -1,0 +1,6 @@
+{
+  "package_name": "radar_msg",
+  "non_idl_tuples": [
+    "/home/diego/Desktop/magister/magister_ws/src/radar_msg:msg/RadarData.msg"
+  ]
+}

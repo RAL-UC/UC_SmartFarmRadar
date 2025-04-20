@@ -1,0 +1,28 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from radar_msg/msg/RadarData.msg
+// generated code does not contain a copyright notice
+
+
+module radar_msg {
+  module msg {
+    @verbatim (language="comment", text=
+      "RadarData.msg")
+    struct RadarData {
+      @verbatim (language="comment", text=
+        "número de filas (por ejemplo 161)")
+      uint32 rows;
+
+      @verbatim (language="comment", text=
+        "número de columnas (por ejemplo 4096)")
+      uint32 cols;
+
+      @verbatim (language="comment", text=
+        "tipo de dato, p.ej. \"float64\"")
+      string dtype;
+
+      @verbatim (language="comment", text=
+        "datos aplanados fila‑por‑fila")
+      sequence<double> data;
+    };
+  };
+};
