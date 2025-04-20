@@ -17,9 +17,7 @@ Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos
 
 ### Dependencias del sistema
 
-Para trabajar con el hardware de radar (PhaserX), es necesario instalar las siguientes bibliotecas:
-
-[Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio)
+Para trabajar con el hardware de radar (PhaserX), es necesario instalar las siguientes bibliotecas [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio): 
 
 Paquetes de Python requeridos:
 - `pylibiio`
@@ -50,8 +48,7 @@ ros2 run ptu_controller control_node \
     -p baudrate:=9600
 ```
 
-#### Publicar ángulos
-Los límites por defecto son:
+Para publicar ángulos, los límites por defecto son:
 - Pan (orientación horizontal): de **-158° a +158°**
 - Tilt (elevación): de **-46° a +31°**
 
@@ -86,14 +83,6 @@ Nodos de ejemplo:
 ros2 run radar_msg publish_radar_data
 ros2 run radar_msg subscribe_radar_data
 ```
-
-### Construcción
-
-```bash
-colcon build --packages-select radar_msg radar_package ptu_controller
-source install/setup.bash
-```
-
 
 
 
