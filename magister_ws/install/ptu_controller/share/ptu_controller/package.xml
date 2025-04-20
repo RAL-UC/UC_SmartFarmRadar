@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Controlador para PTU-D46 vía serie</description>
   <maintainer email="dammr@uc.cl">Diego Muñoz Rojas</maintainer>
-  <license>Apache-2.0</license>
+  <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
   <depend>rclpy</depend>

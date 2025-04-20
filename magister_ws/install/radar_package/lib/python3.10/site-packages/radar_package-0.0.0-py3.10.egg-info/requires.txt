@@ -1,0 +1,9 @@
+setuptools
+rclpy
+std_msgs
+radar_msg
+numpy
+adi
+
+[test]
+pytest

@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/diego/Desktop/magister/magister_ws/src/radar_msg
+CMAKE_SOURCE_DIR = /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/diego/Desktop/magister/magister_ws/build/radar_msg
+CMAKE_BINARY_DIR = /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg
 
 # Utility rule file for radar_msg_uninstall.
 
@@ -67,7 +67,7 @@ include CMakeFiles/radar_msg_uninstall.dir/compiler_depend.make
 include CMakeFiles/radar_msg_uninstall.dir/progress.make
 
 CMakeFiles/radar_msg_uninstall:
-	/usr/bin/cmake -P /home/diego/Desktop/magister/magister_ws/build/radar_msg/ament_cmake_uninstall_target/ament_cmake_uninstall_target.cmake
+	/usr/bin/cmake -P /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/ament_cmake_uninstall_target/ament_cmake_uninstall_target.cmake
 
 radar_msg_uninstall: CMakeFiles/radar_msg_uninstall
 radar_msg_uninstall: CMakeFiles/radar_msg_uninstall.dir/build.make
@@ -82,6 +82,6 @@ CMakeFiles/radar_msg_uninstall.dir/clean:
 .PHONY : CMakeFiles/radar_msg_uninstall.dir/clean
 
 CMakeFiles/radar_msg_uninstall.dir/depend:
-	cd /home/diego/Desktop/magister/magister_ws/build/radar_msg && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/diego/Desktop/magister/magister_ws/src/radar_msg /home/diego/Desktop/magister/magister_ws/src/radar_msg /home/diego/Desktop/magister/magister_ws/build/radar_msg /home/diego/Desktop/magister/magister_ws/build/radar_msg /home/diego/Desktop/magister/magister_ws/build/radar_msg/CMakeFiles/radar_msg_uninstall.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/CMakeFiles/radar_msg_uninstall.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/radar_msg_uninstall.dir/depend
 

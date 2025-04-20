@@ -5,7 +5,7 @@ info_version = '0.0.0'
 info_autor = 'Diego Muñoz Rojas'
 info_email = 'dammr@uc.cl'
 info_descripcion = 'Paquete para generar mensajes personalizados de radar'
-info_licencia = 'Apache-2.0'
+info_licencia = 'TODO: License declaration'
 
 setup(
     name=package_name,
@@ -16,7 +16,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools', 'pyserial'],
+    install_requires=['setuptools', 'pyserial',],
     zip_safe=True,
     maintainer=info_autor,
     maintainer_email=info_email,

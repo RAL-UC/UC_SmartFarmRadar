@@ -5,7 +5,7 @@ info_version = '0.0.0'
 info_autor = 'Diego Muñoz Rojas'
 info_email = 'dammr@uc.cl'
 info_descripcion = 'Paquete para generar mensajes personalizados de radar'
-info_licencia = 'Apache-2.0'
+info_licencia = 'TODO: License declaration'
 
 setup(
     name=package_name,

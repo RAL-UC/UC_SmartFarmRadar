@@ -63,7 +63,7 @@ ros2 topic pub /tilt_angle std_msgs/Float64 "{data: -20.0}"
 ### Paquete `radar_package`
 Publica datos de radar desde un archivo .npy
 ```bash
-ros2 run radar_package publish_radar_data
+ros2 run radar_package radar_node
 ```
 
 Suscribirse para visualizar los datos:

@@ -4,7 +4,7 @@ Version: 0.0.0
 Summary: Paquete para generar mensajes personalizados de radar
 Maintainer: Diego Muñoz Rojas
 Maintainer-email: dammr@uc.cl
-License: Apache-2.0
+License: TODO: License declaration
 Requires-Dist: setuptools
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"

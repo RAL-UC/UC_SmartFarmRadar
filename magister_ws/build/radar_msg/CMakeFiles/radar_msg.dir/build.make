@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/diego/Desktop/magister/magister_ws/src/radar_msg
+CMAKE_SOURCE_DIR = /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/diego/Desktop/magister/magister_ws/build/radar_msg
+CMAKE_BINARY_DIR = /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg
 
 # Utility rule file for radar_msg.
 
@@ -66,7 +66,7 @@ include CMakeFiles/radar_msg.dir/compiler_depend.make
 # Include the progress variables for this target.
 include CMakeFiles/radar_msg.dir/progress.make
 
-CMakeFiles/radar_msg: /home/diego/Desktop/magister/magister_ws/src/radar_msg/msg/RadarData.msg
+CMakeFiles/radar_msg: /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg/msg/RadarData.msg
 CMakeFiles/radar_msg: /home/diego/ros2_humble/install/std_msgs/share/std_msgs/msg/Bool.idl
 CMakeFiles/radar_msg: /home/diego/ros2_humble/install/std_msgs/share/std_msgs/msg/Byte.idl
 CMakeFiles/radar_msg: /home/diego/ros2_humble/install/std_msgs/share/std_msgs/msg/ByteMultiArray.idl
@@ -111,6 +111,6 @@ CMakeFiles/radar_msg.dir/clean:
 .PHONY : CMakeFiles/radar_msg.dir/clean
 
 CMakeFiles/radar_msg.dir/depend:
-	cd /home/diego/Desktop/magister/magister_ws/build/radar_msg && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/diego/Desktop/magister/magister_ws/src/radar_msg /home/diego/Desktop/magister/magister_ws/src/radar_msg /home/diego/Desktop/magister/magister_ws/build/radar_msg /home/diego/Desktop/magister/magister_ws/build/radar_msg /home/diego/Desktop/magister/magister_ws/build/radar_msg/CMakeFiles/radar_msg.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/CMakeFiles/radar_msg.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/radar_msg.dir/depend
 

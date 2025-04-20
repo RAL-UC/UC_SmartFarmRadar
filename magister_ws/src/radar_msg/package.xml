@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Paquete para generar mensajes personalizados de radar y mostrar su ejecución con un ejemplo</description>
   <maintainer email="dammr@uc.cl">Diego Muñoz Rojas</maintainer>
-  <license>Apache-2.0</license>
+  <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

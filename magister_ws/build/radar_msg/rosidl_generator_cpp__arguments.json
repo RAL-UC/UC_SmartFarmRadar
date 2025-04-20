@@ -1,9 +1,9 @@
 {
   "package_name": "radar_msg",
-  "output_dir": "/home/diego/Desktop/magister/magister_ws/build/radar_msg/rosidl_generator_cpp/radar_msg",
+  "output_dir": "/home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/rosidl_generator_cpp/radar_msg",
   "template_dir": "/home/diego/ros2_humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake/../resource",
   "idl_tuples": [
-    "/home/diego/Desktop/magister/magister_ws/build/radar_msg/rosidl_adapter/radar_msg:msg/RadarData.idl"
+    "/home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/rosidl_adapter/radar_msg:msg/RadarData.idl"
   ],
   "ros_interface_dependencies": [
     "std_msgs:/home/diego/ros2_humble/install/std_msgs/share/std_msgs/msg/Bool.idl",
@@ -55,7 +55,7 @@
     "/home/diego/ros2_humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake/../resource/srv__builder.hpp.em",
     "/home/diego/ros2_humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake/../resource/srv__struct.hpp.em",
     "/home/diego/ros2_humble/install/rosidl_generator_cpp/share/rosidl_generator_cpp/cmake/../resource/srv__traits.hpp.em",
-    "/home/diego/Desktop/magister/magister_ws/build/radar_msg/rosidl_adapter/radar_msg/msg/RadarData.idl",
+    "/home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/rosidl_adapter/radar_msg/msg/RadarData.idl",
     "/home/diego/ros2_humble/install/std_msgs/share/std_msgs/msg/Bool.idl",
     "/home/diego/ros2_humble/install/std_msgs/share/std_msgs/msg/Byte.idl",
     "/home/diego/ros2_humble/install/std_msgs/share/std_msgs/msg/ByteMultiArray.idl",

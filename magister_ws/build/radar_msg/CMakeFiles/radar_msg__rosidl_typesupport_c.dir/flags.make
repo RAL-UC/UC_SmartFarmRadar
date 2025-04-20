@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DRCUTILS_ENABLE_FAULT_INJECTION -DROSIDL_GENERATOR_C_BUILDING_DLL_radar_msg -DROS_PACKAGE_NAME=\"radar_msg\"
 
-CXX_INCLUDES = -I/home/diego/Desktop/magister/magister_ws/build/radar_msg/rosidl_generator_c -isystem /home/diego/ros2_humble/install/std_msgs/include/std_msgs -isystem /home/diego/ros2_humble/install/builtin_interfaces/include/builtin_interfaces -isystem /home/diego/ros2_humble/install/rosidl_runtime_c/include/rosidl_runtime_c -isystem /home/diego/ros2_humble/install/rcutils/include/rcutils -isystem /home/diego/ros2_humble/install/rosidl_typesupport_interface/include/rosidl_typesupport_interface -isystem /home/diego/ros2_humble/install/rosidl_typesupport_c/include/rosidl_typesupport_c
+CXX_INCLUDES = -I/home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/rosidl_generator_c -isystem /home/diego/ros2_humble/install/std_msgs/include/std_msgs -isystem /home/diego/ros2_humble/install/builtin_interfaces/include/builtin_interfaces -isystem /home/diego/ros2_humble/install/rosidl_runtime_c/include/rosidl_runtime_c -isystem /home/diego/ros2_humble/install/rcutils/include/rcutils -isystem /home/diego/ros2_humble/install/rosidl_typesupport_interface/include/rosidl_typesupport_interface -isystem /home/diego/ros2_humble/install/rosidl_typesupport_c/include/rosidl_typesupport_c
 
 CXX_FLAGS = -fPIC -Wall -std=gnu++14
 

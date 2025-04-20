@@ -1,0 +1,35 @@
+running egg_info
+creating ../../build/radar_package/radar_package.egg-info
+writing ../../build/radar_package/radar_package.egg-info/PKG-INFO
+writing dependency_links to ../../build/radar_package/radar_package.egg-info/dependency_links.txt
+writing entry points to ../../build/radar_package/radar_package.egg-info/entry_points.txt
+writing requirements to ../../build/radar_package/radar_package.egg-info/requires.txt
+writing top-level names to ../../build/radar_package/radar_package.egg-info/top_level.txt
+writing manifest file '../../build/radar_package/radar_package.egg-info/SOURCES.txt'
+reading manifest file '../../build/radar_package/radar_package.egg-info/SOURCES.txt'
+writing manifest file '../../build/radar_package/radar_package.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package
+copying radar_package/radar_node.py -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package
+copying radar_package/__init__.py -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package
+copying radar_package/process_data.py -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package
+running install
+running install_lib
+creating /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package
+copying /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package/radar_node.py -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package
+copying /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package/__init__.py -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package
+copying /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package/process_data.py -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package
+byte-compiling /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package/radar_node.py to radar_node.cpython-310.pyc
+byte-compiling /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package/process_data.py to process_data.cpython-310.pyc
+running install_data
+creating /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/share/ament_index/resource_index/packages
+copying resource/radar_package -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/share/ament_index/resource_index/packages
+copying package.xml -> /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/share/radar_package
+running install_egg_info
+Copying ../../build/radar_package/radar_package.egg-info to /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package-0.0.0-py3.10.egg-info
+running install_scripts
+Installing process_data script to /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/radar_package
+Installing radar_node script to /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/radar_package
+writing list of installed files to '/home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/install.log'
