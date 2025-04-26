@@ -15,6 +15,10 @@
 #include "rosidl_runtime_cpp/message_initialization.hpp"
 
 
+// Include directives for member types
+// Member 'header'
+#include "std_msgs/msg/detail/header__struct.hpp"
+
 #ifndef _WIN32
 # define DEPRECATED__radar_msg__msg__RadarData __attribute__((deprecated))
 #else
@@ -34,6 +38,7 @@ struct RadarData_
   using Type = RadarData_<ContainerAllocator>;
 
   explicit RadarData_(rosidl_runtime_cpp::MessageInitialization _init = rosidl_runtime_cpp::MessageInitialization::ALL)
+  : header(_init)
   {
     if (rosidl_runtime_cpp::MessageInitialization::ALL == _init ||
       rosidl_runtime_cpp::MessageInitialization::ZERO == _init)
@@ -45,7 +50,8 @@ struct RadarData_
   }
 
   explicit RadarData_(const ContainerAllocator & _alloc, rosidl_runtime_cpp::MessageInitialization _init = rosidl_runtime_cpp::MessageInitialization::ALL)
-  : dtype(_alloc)
+  : header(_alloc, _init),
+    dtype(_alloc)
   {
     if (rosidl_runtime_cpp::MessageInitialization::ALL == _init ||
       rosidl_runtime_cpp::MessageInitialization::ZERO == _init)
@@ -57,6 +63,9 @@ struct RadarData_
   }
 
   // field types and members
+  using _header_type =
+    std_msgs::msg::Header_<ContainerAllocator>;
+  _header_type header;
   using _rows_type =
     uint32_t;
   _rows_type rows;
@@ -71,6 +80,12 @@ struct RadarData_
   _data_type data;
 
   // setters for named parameter idiom
+  Type & set__header(
+    const std_msgs::msg::Header_<ContainerAllocator> & _arg)
+  {
+    this->header = _arg;
+    return *this;
+  }
   Type & set__rows(
     const uint32_t & _arg)
   {
@@ -138,6 +153,9 @@ struct RadarData_
   // comparison operators
   bool operator==(const RadarData_ & other) const
   {
+    if (this->header != other.header) {
+      return false;
+    }
     if (this->rows != other.rows) {
       return false;
     }

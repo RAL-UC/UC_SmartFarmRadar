@@ -72,13 +72,29 @@ private:
 class Init_RadarData_rows
 {
 public:
-  Init_RadarData_rows()
-  : msg_(::rosidl_runtime_cpp::MessageInitialization::SKIP)
+  explicit Init_RadarData_rows(::radar_msg::msg::RadarData & msg)
+  : msg_(msg)
   {}
   Init_RadarData_cols rows(::radar_msg::msg::RadarData::_rows_type arg)
   {
     msg_.rows = std::move(arg);
     return Init_RadarData_cols(msg_);
+  }
+
+private:
+  ::radar_msg::msg::RadarData msg_;
+};
+
+class Init_RadarData_header
+{
+public:
+  Init_RadarData_header()
+  : msg_(::rosidl_runtime_cpp::MessageInitialization::SKIP)
+  {}
+  Init_RadarData_rows header(::radar_msg::msg::RadarData::_header_type arg)
+  {
+    msg_.header = std::move(arg);
+    return Init_RadarData_rows(msg_);
   }
 
 private:
@@ -96,7 +112,7 @@ template<>
 inline
 auto build<::radar_msg::msg::RadarData>()
 {
-  return radar_msg::msg::builder::Init_RadarData_rows();
+  return radar_msg::msg::builder::Init_RadarData_header();
 }
 
 }  // namespace radar_msg

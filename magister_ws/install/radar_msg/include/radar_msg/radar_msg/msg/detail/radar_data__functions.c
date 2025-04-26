@@ -12,6 +12,8 @@
 
 
 // Include directives for member types
+// Member `header`
+#include "std_msgs/msg/detail/header__functions.h"
 // Member `dtype`
 #include "rosidl_runtime_c/string_functions.h"
 // Member `data`
@@ -21,6 +23,11 @@ bool
 radar_msg__msg__RadarData__init(radar_msg__msg__RadarData * msg)
 {
   if (!msg) {
+    return false;
+  }
+  // header
+  if (!std_msgs__msg__Header__init(&msg->header)) {
+    radar_msg__msg__RadarData__fini(msg);
     return false;
   }
   // rows
@@ -44,6 +51,8 @@ radar_msg__msg__RadarData__fini(radar_msg__msg__RadarData * msg)
   if (!msg) {
     return;
   }
+  // header
+  std_msgs__msg__Header__fini(&msg->header);
   // rows
   // cols
   // dtype
@@ -56,6 +65,12 @@ bool
 radar_msg__msg__RadarData__are_equal(const radar_msg__msg__RadarData * lhs, const radar_msg__msg__RadarData * rhs)
 {
   if (!lhs || !rhs) {
+    return false;
+  }
+  // header
+  if (!std_msgs__msg__Header__are_equal(
+      &(lhs->header), &(rhs->header)))
+  {
     return false;
   }
   // rows
@@ -87,6 +102,12 @@ radar_msg__msg__RadarData__copy(
   radar_msg__msg__RadarData * output)
 {
   if (!input || !output) {
+    return false;
+  }
+  // header
+  if (!std_msgs__msg__Header__copy(
+      &(input->header), &(output->header)))
+  {
     return false;
   }
   // rows

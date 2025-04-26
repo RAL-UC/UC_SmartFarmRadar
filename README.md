@@ -71,6 +71,16 @@ Suscribirse para visualizar los datos:
 ros2 run radar_package process_data
 ```
 
+publicacion de datos al topico:
+```bash
+ros2 topic pub /trigger_sweep std_msgs/msg/Bool "data: true"
+```
+
+publicar solo una vez
+```bash
+ros2 topic pub --once /trigger_sweep std_msgs/msg/Bool "data: true"
+```
+
 ### Paquete `radar_msg`
 Este paquete define el mensaje personalizado `RadarData` para estructurar la información del radar. Además, incluye nodos ejecutables a modo de ejemplo. La definición del mensaje puede visualizarse con el siguiente comando:
 

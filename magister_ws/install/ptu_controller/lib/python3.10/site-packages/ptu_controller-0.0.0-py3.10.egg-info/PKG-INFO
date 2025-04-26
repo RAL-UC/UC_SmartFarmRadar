@@ -1,16 +1,13 @@
-Metadata-Version: 2.4
-Name: ptu_controller
+Metadata-Version: 2.1
+Name: ptu-controller
 Version: 0.0.0
 Summary: Paquete para generar mensajes personalizados de radar
+Home-page: UNKNOWN
 Maintainer: Diego Muñoz Rojas
 Maintainer-email: dammr@uc.cl
 License: TODO: License declaration
-Requires-Dist: setuptools
+Platform: UNKNOWN
 Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Dynamic: license
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
+
+UNKNOWN
+

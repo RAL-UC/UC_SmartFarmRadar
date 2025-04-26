@@ -1,3 +1,4 @@
 [console_scripts]
 process_data = radar_package.process_data:main
 radar_node = radar_package.radar_node:main
+

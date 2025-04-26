@@ -14,6 +14,10 @@
 #include "radar_msg/msg/detail/radar_data__struct.hpp"
 #include "rosidl_runtime_cpp/traits.hpp"
 
+// Include directives for member types
+// Member 'header'
+#include "std_msgs/msg/detail/header__traits.hpp"
+
 namespace radar_msg
 {
 
@@ -25,6 +29,13 @@ inline void to_flow_style_yaml(
   std::ostream & out)
 {
   out << "{";
+  // member: header
+  {
+    out << "header: ";
+    to_flow_style_yaml(msg.header, out);
+    out << ", ";
+  }
+
   // member: rows
   {
     out << "rows: ";
@@ -69,6 +80,15 @@ inline void to_block_style_yaml(
   const RadarData & msg,
   std::ostream & out, size_t indentation = 0)
 {
+  // member: header
+  {
+    if (indentation > 0) {
+      out << std::string(indentation, ' ');
+    }
+    out << "header:\n";
+    to_block_style_yaml(msg.header, out, indentation + 2);
+  }
+
   // member: rows
   {
     if (indentation > 0) {

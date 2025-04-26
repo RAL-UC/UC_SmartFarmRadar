@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64
+from std_msgs.msg import String
 import serial
-
-def grados_a_pasos(grados):
-    """Convierte grados a pasos PTU‑D46 (0.0514285° por paso)."""
-    resolucion = 185.1428 / 3600  # en grados
-    return round(grados / resolucion)
+import time
 
 class PTUController(Node):
     def __init__(self):
@@ -25,30 +21,46 @@ class PTUController(Node):
             self.get_logger().error(f'No se pudo abrir {port}: {e}')
             self.ser = None
 
-        # Suscriptores para pan y tilt
-        self.sub_pan  = self.create_subscription(Float64, '/pan_angle',  self.cb_pan, 10)
-        self.sub_tilt = self.create_subscription(Float64, '/tilt_angle', self.cb_tilt, 10)
+        # Suscriptor único para comandos genéricos
+        self.sub_cmd = self.create_subscription(String, '/ptu_command', self.cb_cmd, 10)
 
-    def send_cmd(self, prefix: str, pasos: int):
-        """Formatea y envía comando. Ej: 'PN1234' + CR+LF."""
+    def send_raw(self, cmd_str: str):
+        """Envía cualquier comando crudo y lee múltiples líneas de respuesta del PTU."""
         if not self.ser or not self.ser.is_open:
             self.get_logger().warning('Puerto serie no disponible')
             return
-        cmd = f"{prefix}{pasos}\r\n".encode('ascii')
+
+        # Enviar comando con terminador CR+LF
+        cmd = f"{cmd_str}".encode('ascii')
         self.ser.write(cmd)
+        self.ser.write("\r\n".encode('ascii'))
         self.get_logger().info(f'Enviado: {cmd!r}')
 
-    def cb_pan(self, msg: Float64):
-        pasos = grados_a_pasos(msg.data)
-        # límite [-3090, +3090]
-        pasos = max(-3090, min(3090, pasos))
-        self.send_cmd('pt', pasos)
+        time.sleep(0.05)  # pequeña espera para asegurar que llegue la respuesta (ajustable)
 
-    def cb_tilt(self, msg: Float64):
-        pasos = grados_a_pasos(msg.data)
-        # límite [-907, +604]
-        pasos = max(-907, min(604, pasos))
-        self.send_cmd('TN', pasos)
+        # Leer múltiples líneas de respuesta
+        try:
+            lines = []
+            while self.ser.in_waiting:
+                line = self.ser.readline().decode('ascii', errors='replace').strip()
+                if line:
+                    lines.append(line)
+
+            if lines:
+                for i, line in enumerate(lines):
+                    self.get_logger().info(f'Respuesta línea {i+1}: {line}')
+            else:
+                self.get_logger().warning('No se recibió respuesta del PTU')
+
+        except Exception as e:
+            self.get_logger().error(f'Error leyendo respuesta: {e}')
+
+    def cb_cmd(self, msg: String):
+        cmd = msg.data.strip()
+        if not cmd:
+            self.get_logger().warning('Comando vacío recibido en /ptu_command')
+            return
+        self.send_raw(cmd)
 
 def main(args=None):
     rclpy.init(args=args)

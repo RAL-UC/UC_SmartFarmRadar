@@ -1,0 +1,25 @@
+[0.903s] Invoking command in '/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_package': PYTHONPATH=/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/radar_package build --build-base /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build install --record /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/install.log --single-version-externally-managed install_data
+[1.246s] running egg_info
+[1.246s] writing ../../build/radar_package/radar_package.egg-info/PKG-INFO
+[1.247s] writing dependency_links to ../../build/radar_package/radar_package.egg-info/dependency_links.txt
+[1.247s] writing entry points to ../../build/radar_package/radar_package.egg-info/entry_points.txt
+[1.247s] writing requirements to ../../build/radar_package/radar_package.egg-info/requires.txt
+[1.247s] writing top-level names to ../../build/radar_package/radar_package.egg-info/top_level.txt
+[1.248s] reading manifest file '../../build/radar_package/radar_package.egg-info/SOURCES.txt'
+[1.248s] writing manifest file '../../build/radar_package/radar_package.egg-info/SOURCES.txt'
+[1.249s] running build
+[1.249s] running build_py
+[1.249s] copying radar_package/radar_node.py -> /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package
+[1.249s] running install
+[1.249s] running install_lib
+[1.250s] copying /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build/lib/radar_package/radar_node.py -> /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package
+[1.251s] byte-compiling /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package/radar_node.py to radar_node.cpython-310.pyc
+[1.253s] running install_data
+[1.253s] running install_egg_info
+[1.255s] removing '/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package-0.0.0-py3.10.egg-info' (and everything under it)
+[1.255s] Copying ../../build/radar_package/radar_package.egg-info to /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages/radar_package-0.0.0-py3.10.egg-info
+[1.256s] running install_scripts
+[1.284s] Installing process_data script to /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/radar_package
+[1.284s] Installing radar_node script to /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/radar_package
+[1.285s] writing list of installed files to '/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/install.log'
+[1.301s] Invoked command in '/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_package' returned '0': PYTHONPATH=/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_package/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/radar_package build --build-base /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/build install --record /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_package/install.log --single-version-externally-managed install_data

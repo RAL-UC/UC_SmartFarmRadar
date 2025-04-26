@@ -9,17 +9,26 @@ import numpy as np
 #from std_msgs.msg import Float32MultiArray
 from radar_msg.msg import RadarData
 from std_msgs.msg import Bool
+from std_msgs.msg import Header
 
 # herencia de node al instanciar se registra en el grafo de ROS2
 class RadarNode(Node):
     def __init__(self):
         super().__init__('radar_node')
+        print("iniciando")
 
         # direcciones ip
         #self.sdr_uri_raspberry = "ip:192.168.2.1"
         #self.phaser_uri_raspberry = "ip:localhost"
+
+        # windows
         self.sdr_uri_computerhost = "ip:phaser.local:50901"
         self.phaser_uri_computerhost  = "ip:phaser.local"
+
+        # ubuntu
+        #self.sdr_uri_computerhost = "ip:10.42.0.1:50901"
+        #self.phaser_uri_computerhost = "ip:10.42.0.1"
+
 
         # parámetros configurables desde línea de comandos o launch 
         self.declare_parameter('angle_min',    -80)       # grados
@@ -56,8 +65,9 @@ class RadarNode(Node):
         # Configuración del Phaser: ADAR1000: gananacia y fase
         # IMPORTANTE: se debe tener los archivos de calibracion en la misma carpeta
         phaser.configure(device_mode="rx")
-        phaser.load_gain_cal()
-        phaser.load_phase_cal()
+        phaser.load_gain_cal("/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_package/radar_package/gain_cal_val.pkl")
+        phaser.load_phase_cal("/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_package/radar_package/phase_cal_val.pkl")
+        print("calibrado")
         for ch in range(8):
             phaser.set_chan_phase(ch, 0)
 
@@ -162,7 +172,7 @@ class RadarNode(Node):
             # 1) Beam steering
             phase_delta = (2*np.pi * 10.25e9 * 0.014 *np.sin(np.radians(theta))) / 3e8
             self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
-            time.sleep(self.settle_time)
+            time.sleep(0.3)
 
             # 2) Recepción y FFT
             data = self.my_sdr.rx()
@@ -176,6 +186,9 @@ class RadarNode(Node):
         
         mat = np.vstack(radar_data_matriz)            # shape (161,4096)
         msg = RadarData()
+        msg.header = Header()
+        msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
+        msg.header.frame_id = 'radar_sensor'
         msg.rows = mat.shape[0]
         msg.cols = mat.shape[1]
         msg.dtype = str(mat.dtype)         # "float64"

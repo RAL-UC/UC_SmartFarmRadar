@@ -1,9 +1,9 @@
-setuptools
-rclpy
-std_msgs
-radar_msg
-numpy
 adi
+numpy
+radar_msg
+rclpy
+setuptools
+std_msgs
 
 [test]
 pytest

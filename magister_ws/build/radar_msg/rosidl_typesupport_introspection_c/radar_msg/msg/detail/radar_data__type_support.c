@@ -13,6 +13,10 @@
 
 
 // Include directives for member types
+// Member `header`
+#include "std_msgs/msg/header.h"
+// Member `header`
+#include "std_msgs/msg/detail/header__rosidl_typesupport_introspection_c.h"
 // Member `dtype`
 #include "rosidl_runtime_c/string_functions.h"
 // Member `data`
@@ -92,7 +96,24 @@ bool radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__resize_funct
   return rosidl_runtime_c__double__Sequence__init(member, size);
 }
 
-static rosidl_typesupport_introspection_c__MessageMember radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_message_member_array[4] = {
+static rosidl_typesupport_introspection_c__MessageMember radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_message_member_array[5] = {
+  {
+    "header",  // name
+    rosidl_typesupport_introspection_c__ROS_TYPE_MESSAGE,  // type
+    0,  // upper bound of string
+    NULL,  // members of sub message (initialized later)
+    false,  // is array
+    0,  // array size
+    false,  // is upper bound
+    offsetof(radar_msg__msg__RadarData, header),  // bytes offset in struct
+    NULL,  // default value
+    NULL,  // size() function pointer
+    NULL,  // get_const(index) function pointer
+    NULL,  // get(index) function pointer
+    NULL,  // fetch(index, &value) function pointer
+    NULL,  // assign(index, value) function pointer
+    NULL  // resize(index) function pointer
+  },
   {
     "rows",  // name
     rosidl_typesupport_introspection_c__ROS_TYPE_UINT32,  // type
@@ -166,7 +187,7 @@ static rosidl_typesupport_introspection_c__MessageMember radar_msg__msg__RadarDa
 static const rosidl_typesupport_introspection_c__MessageMembers radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_message_members = {
   "radar_msg__msg",  // message namespace
   "RadarData",  // message name
-  4,  // number of fields
+  5,  // number of fields
   sizeof(radar_msg__msg__RadarData),
   radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_message_member_array,  // message members
   radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_init_function,  // function to initialize message memory (memory has to be allocated)
@@ -184,6 +205,8 @@ static rosidl_message_type_support_t radar_msg__msg__RadarData__rosidl_typesuppo
 ROSIDL_TYPESUPPORT_INTROSPECTION_C_EXPORT_radar_msg
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(rosidl_typesupport_introspection_c, radar_msg, msg, RadarData)() {
+  radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_message_member_array[0].members_ =
+    ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(rosidl_typesupport_introspection_c, std_msgs, msg, Header)();
   if (!radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_message_type_support_handle.typesupport_identifier) {
     radar_msg__msg__RadarData__rosidl_typesupport_introspection_c__RadarData_message_type_support_handle.typesupport_identifier =
       rosidl_typesupport_introspection_c__identifier;

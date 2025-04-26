@@ -15,6 +15,10 @@ class RadarDataSubscriber(Node):
         )
 
     def listener_callback(self, msg: RadarData):
+        # Mostrar Header
+        self.get_logger().info(
+            f'Recibido header: stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, frame_id="{msg.header.frame_id}"'
+        )
         # Reconstruir numpy array
         arr = np.array(msg.data, dtype=msg.dtype)
         arr = arr.reshape((msg.rows, msg.cols))

@@ -2,13 +2,17 @@
 // with input from radar_msg/msg/RadarData.msg
 // generated code does not contain a copyright notice
 
+#include "std_msgs/msg/Header.idl"
 
 module radar_msg {
   module msg {
     @verbatim (language="comment", text=
-      "RadarData.msg")
+      "Importar el tipo Header")
     struct RadarData {
+      std_msgs::msg::Header header;
+
       @verbatim (language="comment", text=
+        "RadarData.msg" "\n"
         "número de filas (por ejemplo 161)")
       uint32 rows;
 

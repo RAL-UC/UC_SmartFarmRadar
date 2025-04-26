@@ -82,7 +82,24 @@ void resize_function__RadarData__data(void * untyped_member, size_t size)
   member->resize(size);
 }
 
-static const ::rosidl_typesupport_introspection_cpp::MessageMember RadarData_message_member_array[4] = {
+static const ::rosidl_typesupport_introspection_cpp::MessageMember RadarData_message_member_array[5] = {
+  {
+    "header",  // name
+    ::rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE,  // type
+    0,  // upper bound of string
+    ::rosidl_typesupport_introspection_cpp::get_message_type_support_handle<std_msgs::msg::Header>(),  // members of sub message
+    false,  // is array
+    0,  // array size
+    false,  // is upper bound
+    offsetof(radar_msg::msg::RadarData, header),  // bytes offset in struct
+    nullptr,  // default value
+    nullptr,  // size() function pointer
+    nullptr,  // get_const(index) function pointer
+    nullptr,  // get(index) function pointer
+    nullptr,  // fetch(index, &value) function pointer
+    nullptr,  // assign(index, value) function pointer
+    nullptr  // resize(index) function pointer
+  },
   {
     "rows",  // name
     ::rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT32,  // type
@@ -156,7 +173,7 @@ static const ::rosidl_typesupport_introspection_cpp::MessageMember RadarData_mes
 static const ::rosidl_typesupport_introspection_cpp::MessageMembers RadarData_message_members = {
   "radar_msg::msg",  // message namespace
   "RadarData",  // message name
-  4,  // number of fields
+  5,  // number of fields
   sizeof(radar_msg::msg::RadarData),
   RadarData_message_member_array,  // message members
   RadarData_init_function,  // function to initialize message memory (memory has to be allocated)

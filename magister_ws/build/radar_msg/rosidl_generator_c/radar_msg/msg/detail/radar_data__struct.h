@@ -19,6 +19,8 @@ extern "C"
 // Constants defined in the message
 
 // Include directives for member types
+// Member 'header'
+#include "std_msgs/msg/detail/header__struct.h"
 // Member 'dtype'
 #include "rosidl_runtime_c/string.h"
 // Member 'data'
@@ -26,10 +28,12 @@ extern "C"
 
 /// Struct defined in msg/RadarData in the package radar_msg.
 /**
-  * RadarData.msg
+  * Importar el tipo Header
  */
 typedef struct radar_msg__msg__RadarData
 {
+  std_msgs__msg__Header header;
+  /// RadarData.msg
   /// número de filas (por ejemplo 161)
   uint32_t rows;
   /// número de columnas (por ejemplo 4096)

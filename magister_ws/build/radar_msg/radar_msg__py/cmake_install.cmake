@@ -1,8 +1,8 @@
-# Install script for directory: /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/radar_msg__py
+# Install script for directory: /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/radar_msg__py
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/diego/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_msg")
+  set(CMAKE_INSTALL_PREFIX "/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/install/radar_msg")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 

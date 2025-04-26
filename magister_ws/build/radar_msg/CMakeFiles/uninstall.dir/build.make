@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg
+CMAKE_SOURCE_DIR = /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg
+CMAKE_BINARY_DIR = /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg
 
 # Utility rule file for uninstall.
 
@@ -78,6 +78,6 @@ CMakeFiles/uninstall.dir/clean:
 .PHONY : CMakeFiles/uninstall.dir/clean
 
 CMakeFiles/uninstall.dir/depend:
-	cd /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/diego/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/CMakeFiles/uninstall.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_msg /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg /home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/build/radar_msg/CMakeFiles/uninstall.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/uninstall.dir/depend
 
