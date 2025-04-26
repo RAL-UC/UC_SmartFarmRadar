@@ -10,6 +10,7 @@ import numpy as np
 from radar_msg.msg import RadarData
 from std_msgs.msg import Bool
 from std_msgs.msg import Header
+import os
 
 # herencia de node al instanciar se registra en el grafo de ROS2
 class RadarNode(Node):
@@ -172,7 +173,7 @@ class RadarNode(Node):
             # 1) Beam steering
             phase_delta = (2*np.pi * 10.25e9 * 0.014 *np.sin(np.radians(theta))) / 3e8
             self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
-            time.sleep(0.3)
+            time.sleep(0.1)
 
             # 2) Recepción y FFT
             data = self.my_sdr.rx()
@@ -183,8 +184,22 @@ class RadarNode(Node):
             mag  = np.maximum(mag, 1e-15)
             s_db = 20 * np.log10(mag / (2**11))
             radar_data_matriz.append(s_db)
-        
+
         mat = np.vstack(radar_data_matriz)            # shape (161,4096)
+        
+        save_dir = '/home/dammr/Desktop/UC_SmartFarmRadar/capturas_radar'  # Carpeta donde guardar
+        os.makedirs(save_dir, exist_ok=True)  # crea la carpeta si no existe
+
+        existing_files = [f for f in os.listdir(save_dir) if f.endswith('.npy')]
+        numbers = [int(f.replace('.npy', '')) for f in existing_files if f.replace('.npy', '').isdigit()]
+        next_number = max(numbers) + 1 if numbers else 0
+
+        save_path = os.path.join(save_dir, f"{next_number}.npy")
+        np.save(save_path, mat)
+
+        self.get_logger().info(f'Datos guardados en {save_path}')
+
+        # publicar ros
         msg = RadarData()
         msg.header = Header()
         msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
