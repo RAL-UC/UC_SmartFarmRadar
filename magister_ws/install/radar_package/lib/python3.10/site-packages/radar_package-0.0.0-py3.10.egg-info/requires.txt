@@ -1,9 +1,0 @@
-adi
-numpy
-radar_msg
-rclpy
-setuptools
-std_msgs
-
-[test]
-pytest

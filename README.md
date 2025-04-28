@@ -19,6 +19,28 @@ Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos
 
 Para trabajar con el hardware de radar (PhaserX), es necesario instalar las siguientes bibliotecas [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio): 
 
+seguir el listado de instrucciones de configuración previa de [Build instructions for libiio](https://github.com/analogdevicesinc/libiio/blob/main/README_BUILD.md) hasta antes de clonar el repositorio. 
+```bash
+sudo apt-get update
+sudo apt-get install build-essential
+sudo apt-get install libxml2-dev libzstd-dev bison flex libcdk5-dev cmake
+sudo apt-get install libaio-dev libusb-1.0-0-dev
+sudo apt-get install libserialport-dev libavahi-client-dev
+sudo apt-get install doxygen graphviz
+sudo apt-get install python3 python3-pip python3-setuptools
+```
+
+Luego descargar libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb.
+```bash
+sudo apt install ./libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb
+```
+
+Por ultimo continuar con 
+```bash
+pip install pylibiio
+pip install pyadi-iio
+```
+
 Paquetes de Python requeridos:
 - `pylibiio`
 - `pyadi-iio`
@@ -30,7 +52,7 @@ Paquetes de Python requeridos:
 Desde la raíz del workspace:
 
 ```bash
-colcon build --packages-select radar_msg radar_package ptu_controller
+colcon build
 source install/setup.bash
 ```
 
@@ -93,6 +115,29 @@ Nodos de ejemplo:
 ros2 run radar_msg publish_radar_data
 ros2 run radar_msg subscribe_radar_data
 ```
+
+correr rosbag
+
+```bash
+ros2 bag play /home/dammr/Downloads/radar/intento1.7/intento1.7_0.db3
+```
+
+Para cargar el entorno de ros2 de forma automatica en tu computador y espacio de trabajo añade lo siguiente a tu archivo `~/.bashrc`
+```bash
+source ~/ros2_humble/install/setup.bash
+source ~/Desktop/magister_ws/install/setup.bash
+```
+
+### Herramientas utiles para desarrollador
+- Visual Studio Code
+- tmux
+
+Para establecer comunicación de forma correcta con el radar se debe establecer un perfil en settings -> network -> wired -> + -> IPV4 -> shared to other computers -> add
+
+De esta forma se le estara asignando una ip al puerto
+
+### Pun-tilt
+mientras tanto se ha controlador por medio del terminal serial `putty`
 
 
 

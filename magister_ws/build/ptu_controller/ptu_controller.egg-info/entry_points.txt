@@ -1,3 +1,0 @@
-[console_scripts]
-ptu_controller = ptu_controller.controlador:main
-
