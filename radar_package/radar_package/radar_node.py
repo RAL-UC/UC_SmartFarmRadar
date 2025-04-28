@@ -11,6 +11,11 @@ from radar_msg.msg import RadarData
 from std_msgs.msg import Bool
 from std_msgs.msg import Header
 import os
+from ament_index_python.packages import get_package_share_directory
+
+pkg_share = get_package_share_directory('radar_package')
+path_gain = os.path.join(pkg_share, 'resource', 'gain_cal_val.pkl')
+path_phase = os.path.join(pkg_share, 'resource', 'phase_cal_val.pkl')
 
 # herencia de node al instanciar se registra en el grafo de ROS2
 class RadarNode(Node):
@@ -66,8 +71,8 @@ class RadarNode(Node):
         # Configuración del Phaser: ADAR1000: gananacia y fase
         # IMPORTANTE: se debe tener los archivos de calibracion en la misma carpeta
         phaser.configure(device_mode="rx")
-        phaser.load_gain_cal("/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_package/radar_package/gain_cal_val.pkl")
-        phaser.load_phase_cal("/home/dammr/Desktop/UC_SmartFarmRadar/magister_ws/src/radar_package/radar_package/phase_cal_val.pkl")
+        phaser.load_gain_cal(path_gain)
+        phaser.load_phase_cal(path_phase)
         print("calibrado")
         for ch in range(8):
             phaser.set_chan_phase(ch, 0)

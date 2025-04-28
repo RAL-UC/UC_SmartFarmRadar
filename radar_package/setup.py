@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
 package_name = 'radar_package'
 info_version = '0.0.0'
@@ -12,9 +14,9 @@ setup(
     version=info_version,
     packages=find_packages(exclude=['test']),
     data_files=[
-        ('share/ament_index/resource_index/packages',
-            ['resource/' + package_name]),
+        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'resource'), glob('resource/*.pkl')),
     ],
     install_requires=[
         'setuptools',
@@ -35,7 +37,7 @@ setup(
     entry_points={
         'console_scripts': [
             'radar_node = radar_package.radar_node:main',
-            'process_data = radar_package.process_data:main',
+            'process_data_node = radar_package.process_data_node:main',
         ],
     },
 )

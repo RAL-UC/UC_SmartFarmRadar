@@ -90,7 +90,7 @@ ros2 run radar_package radar_node
 
 Suscribirse para visualizar los datos:
 ```bash
-ros2 run radar_package process_data
+ros2 run radar_package process_data_node
 ```
 
 publicacion de datos al topico:
@@ -119,7 +119,11 @@ ros2 run radar_msg subscribe_radar_data
 correr rosbag
 
 ```bash
-ros2 bag play /home/dammr/Downloads/radar/intento1.7/intento1.7_0.db3
+ros2 bag play UC_SmartFarmRadar/datos/radar_rosbag/intento1.7/intento1.7_0.db3
+```
+en bucle
+```bash
+ros2 bag play --loop UC_SmartFarmRadar/datos/radar_rosbag/intento1.7/intento1.7_0.db3
 ```
 
 Para cargar el entorno de ros2 de forma automatica en tu computador y espacio de trabajo añade lo siguiente a tu archivo `~/.bashrc`
