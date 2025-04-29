@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from radar_msg.msg import RadarData
 from radar_package.target_detection_dbfs import cfar
 
-path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito.npy"
+path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
 class RadarDataSubscriber(Node):
     def __init__(self):
         super().__init__('subscribe_radar_data')
@@ -26,24 +26,43 @@ class RadarDataSubscriber(Node):
         
         self.base_data = np.load(path_base_data) 
 
+        # Nueva figura para CFAR vs señal
+        self.fig2, self.ax2 = plt.subplots(figsize=(6, 4))
+        self.ax2.set_xlabel("Range [m]")
+        self.ax2.set_ylabel("Magnitud [dBFS]")
+        self.ax2.set_title("Datos vs Umbral CFAR")
+        self.ax2.grid(True)
+        self.line_sig, = self.ax2.plot([], [], label="Magnitud FFT")
+        self.line_thr, = self.ax2.plot([], [], label="Umbral CFAR")
+        self.scatter_det = self.ax2.scatter([], [], c='r', s=20, label="Detecciones")
+        self.ax2.legend(loc="upper right")      
+
+
     def listener_callback(self, msg: RadarData):
         # Mostrar Header
         self.get_logger().info(
-            f'Recibido header: stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, frame_id="{msg.header.frame_id}"'
+            f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"'
         )
         # Reconstruir numpy array
         arr = np.array(msg.data, dtype=msg.dtype)
         arr = arr.reshape((msg.rows, msg.cols))
         # Mostrar info
-        self.get_logger().info(
-            f'Recibido RadarData: {arr.shape}, dtype={arr.dtype}'
-        )
+        #self.get_logger().info(
+        #    f'Recibido RadarData: {arr.shape}, dtype={arr.dtype}'
+        #)
         # Muestra los primeros 5 valores
         flat = arr.flatten()
         preview = ', '.join(f'{v:.2f}' for v in flat[:5])
-        self.get_logger().info(f'Primeros 5 valores: [{preview}]')
+        #self.get_logger().info(f'Primeros 5 valores: [{preview}]')
 
         arr = arr - self.base_data
+        arr_min = np.min(arr)
+        arr_max = np.max(arr)
+
+        if arr_max > arr_min:
+            arr = (arr - arr_min) / (arr_max - arr_min)
+        else:
+            arr = np.zeros_like(arr)
 
         # ------- PARAMETROS -------
         fft_size = 1024 * 4
@@ -75,28 +94,60 @@ class RadarDataSubscriber(Node):
 
         angles = np.arange(-80, 81, 1)
 
-        #distances = np.full(len(angles), np.nan)
-        all_detected_angles = []
-        all_detected_distances = []
+        distances = np.full((len(angles), len(filtered_range_axis)), np.nan)
+        #all_detected_angles = []
+        #all_detected_distances = []
 
         for i, mag in enumerate(filtered_fft_data):
-            thresh, targets = cfar(mag, num_guard_cells=20, num_ref_cells=20, bias=50, cfar_method='average')
-            det_indices = np.where(~targets.mask)[0]
+            thresh, targets = cfar(mag, num_guard_cells=5, num_ref_cells=20, bias=0.1, cfar_method='average')
+            det_indices = np.where(targets.mask)[0] # posiciones no enmascaradas
+            #print(det_indices)
+            #all_detected_angles.append(angles[i])
+            #all_detected_distances.append(mag[det_indices])
             
-            if det_indices.size > 0:
-                # Para cada detección encontrada:
-                for idx in det_indices:
-                    all_detected_angles.append(angles[i])  # El ángulo correspondiente
-                    all_detected_distances.append(filtered_range_axis[idx])  # La distancia detectada
+            distances[i, det_indices] = mag[det_indices]
+            #for idx in det_indices:
+                #all_detected_angles.append(angles[i])  # El ángulo correspondiente
+                #all_detected_distances.append(mag[idx])  # La distancia detectada
+            #    distances[i, idx] = mag[idx]
+                #print(i, idx, mag[idx])
+
+            if i == 80:
+                # 3) Actualiza las curvas en la figura 2
+                # Señal original X_k vs distancia
+                self.line_sig.set_data(filtered_range_axis, mag)
+                # Umbral CFAR vs distancia
+                self.line_thr.set_data(filtered_range_axis, thresh)
+                # Puntos de detección
+                self.scatter_det.set_offsets(
+                    np.c_[filtered_range_axis[det_indices], mag[det_indices]]
+                )
+
+                # 4) Ajusta límites si han cambiado
+                self.ax2.set_xlim(filtered_range_axis[0], filtered_range_axis[-1])
+                # opcional: fijar ylim fijo o basado en min/max de X_k y cfar
+                ymin = min(np.min(mag), np.min(thresh))
+                ymax = max(np.max(mag), np.max(thresh))
+                self.ax2.set_ylim(ymin, ymax)
+
+                # 5) Refresca la figura 2
+                self.fig2.canvas.draw_idle()
 
         self.ax_det.clear()
-        self.ax_det.plot(all_detected_angles, all_detected_distances, 'bo', markersize=4)
+        # Actualizar el gráfico de detecciones
+        self.im_det = self.ax_det.imshow(
+            distances.T,   # TRANSPOSE: porque primero es rango (eje y), luego ángulo (eje x)
+            aspect='auto',
+            origin='lower',
+            extent=[angles[0], angles[-1], filtered_range_axis[0], filtered_range_axis[-1]],
+            cmap='jet'
+        )
+
+        # Etiquetas
         self.ax_det.set_xlabel("Angle [°]")
         self.ax_det.set_ylabel("Range [m]")
-        self.ax_det.set_title("CFAR Detections")
-        self.ax_det.grid(True)
-        self.ax_det.set_xlim(angles[0], angles[-1])
-        self.ax_det.set_ylim(filtered_range_axis[0], filtered_range_axis[-1])
+        self.ax_det.set_title("CFAR Detections Map")
+        #self.ax_det.grid(True)
 
         # grafico
         data = filtered_fft_data.T   # ahora shape [n_rng, n_ang]

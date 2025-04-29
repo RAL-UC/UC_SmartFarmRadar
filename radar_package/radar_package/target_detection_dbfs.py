@@ -8,8 +8,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-def cfar(X_k, num_guard_cells, num_ref_cells, bias=1, cfar_method='average',
-    fa_rate=0.2):
+def cfar(X_k, num_guard_cells, num_ref_cells, bias=1, cfar_method='average', fa_rate=0.2):
     N = X_k.size
     cfar_values = np.ma.masked_all(X_k.shape)
     for center_index in range(num_guard_cells + num_ref_cells, N - (num_guard_cells + num_ref_cells)):
@@ -35,7 +34,7 @@ def cfar(X_k, num_guard_cells, num_ref_cells, bias=1, cfar_method='average',
             output = mean + bias
         elif (cfar_method == 'false_alarm'):
             refs = np.concatenate((lower_nearby, upper_nearby))
-            noise_variance = np.sum(refs**2 / refs.size)
+            noise_variance = np.sum(refs**2 / refs.size)    
             output = (noise_variance * -2 * np.log(fa_rate))**0.5
         else:
             raise Exception('No CFAR method received')
