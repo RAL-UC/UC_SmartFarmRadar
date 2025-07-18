@@ -12,6 +12,7 @@ from std_msgs.msg import Bool
 from std_msgs.msg import Header
 import os
 from ament_index_python.packages import get_package_share_directory
+import config_radar as cfgr
 
 pkg_share = get_package_share_directory('radar_package')
 path_gain = os.path.join(pkg_share, 'resource', 'gain_cal_val.pkl')
@@ -92,11 +93,10 @@ class RadarNode(Node):
             phaser.gpios.gpio_vctrl_2 = 1
 
         # Parámetros de configuración de la señal en sdr
-        sample_rate = 0.6e6 # frecuencia de muestreo
-        center_freq = 2.2e9 # 2.2 frecuencia central
-        signal_freq = 100e3 # frecuencia de la señal transmitida    
-
-        fft_size = 1024 * 4 # 
+        sample_rate = cfgr.sample_rate # frecuencia de muestreo
+        center_freq = cfgr.center_freq # 2.2 frecuencia central
+        signal_freq = cfgr.signal_freq # frecuencia de la señal transmitida    
+        fft_size = cfgr.fft_size 
 
         # Configuración del receptor Rx del SDR
         sdr.sample_rate = int(sample_rate)
@@ -192,17 +192,15 @@ class RadarNode(Node):
 
         mat = np.vstack(radar_data_matriz)            # shape (161,4096)
         
-        save_dir = '/home/dammr/Desktop/UC_SmartFarmRadar/capturas_radar'  # Carpeta donde guardar
-        os.makedirs(save_dir, exist_ok=True)  # crea la carpeta si no existe
-
-        existing_files = [f for f in os.listdir(save_dir) if f.endswith('.npy')]
-        numbers = [int(f.replace('.npy', '')) for f in existing_files if f.replace('.npy', '').isdigit()]
-        next_number = max(numbers) + 1 if numbers else 0
-
-        save_path = os.path.join(save_dir, f"{next_number}.npy")
-        np.save(save_path, mat)
-
-        self.get_logger().info(f'Datos guardados en {save_path}')
+        # GUARDAR DATA .npy
+        #save_dir = '/home/dammr/Desktop/UC_SmartFarmRadar/capturas_radar'  # Carpeta donde guardar
+        #os.makedirs(save_dir, exist_ok=True)  # crea la carpeta si no existe
+        #existing_files = [f for f in os.listdir(save_dir) if f.endswith('.npy')]
+        #numbers = [int(f.replace('.npy', '')) for f in existing_files if f.replace('.npy', '').isdigit()]
+        #next_number = max(numbers) + 1 if numbers else 0
+        #save_path = os.path.join(save_dir, f"{next_number}.npy")
+        #np.save(save_path, mat)
+        #self.get_logger().info(f'Datos guardados en {save_path}')
 
         # publicar ros
         msg = RadarData()

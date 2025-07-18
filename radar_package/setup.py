@@ -6,7 +6,7 @@ package_name = 'radar_package'
 info_version = '0.0.0'
 info_autor = 'Diego Muñoz Rojas'
 info_email = 'dammr@uc.cl'
-info_descripcion = 'Paquete para generar mensajes personalizados de radar'
+info_descripcion = 'Paquete que contiene los nodos de procesamiento y adquisición de datos del radar'
 info_licencia = 'TODO: License declaration'
 
 setup(
@@ -38,6 +38,7 @@ setup(
         'console_scripts': [
             'radar_node = radar_package.radar_node:main',
             'process_data_node = radar_package.process_data_node:main',
+            'visulizacion_node = radar_package.visualizacion:main'
         ],
     },
 )

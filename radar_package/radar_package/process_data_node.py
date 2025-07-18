@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from radar_msg.msg import RadarData
 from radar_package.target_detection_dbfs import cfar
+import time
 
 path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
 class RadarDataSubscriber(Node):
@@ -20,10 +21,11 @@ class RadarDataSubscriber(Node):
         plt.ion()  # Modo interactivo
         self.fig, (self.ax_mag, self.ax_det) = plt.subplots(1, 2, figsize=(12, 5))
         self.im = None
-        self.cbar = None
+        self.im_det = None
+        self.cbar1 = None
+        self.cbar2 = None
 
         self.det_plot = None
-        
         self.base_data = np.load(path_base_data) 
 
         # Nueva figura para CFAR vs señal
@@ -37,6 +39,13 @@ class RadarDataSubscriber(Node):
         self.scatter_det = self.ax2.scatter([], [], c='r', s=20, label="Detecciones")
         self.ax2.legend(loc="upper right")      
 
+        self.fig_accum, self.ax_accum = plt.subplots(figsize=(12, 6))
+        self.cbar3 = None
+        self.im_accum = None
+        self.total_joints = 13
+        self.joint_counter = 0
+        self.current_col = 0
+        self.accumulated_map = None
 
     def listener_callback(self, msg: RadarData):
         # Mostrar Header
@@ -99,55 +108,133 @@ class RadarDataSubscriber(Node):
         #all_detected_distances = []
 
         for i, mag in enumerate(filtered_fft_data):
-            thresh, targets = cfar(mag, num_guard_cells=5, num_ref_cells=20, bias=0.1, cfar_method='average')
+            thresh, targets = cfar(mag, num_guard_cells=5, num_ref_cells=15, bias=0.1, cfar_method='average')
             det_indices = np.where(targets.mask)[0] # posiciones no enmascaradas
             #print(det_indices)
             #all_detected_angles.append(angles[i])
             #all_detected_distances.append(mag[det_indices])
             
             distances[i, det_indices] = mag[det_indices]
+            #distances[i, det_indices] = 255
             #for idx in det_indices:
                 #all_detected_angles.append(angles[i])  # El ángulo correspondiente
                 #all_detected_distances.append(mag[idx])  # La distancia detectada
             #    distances[i, idx] = mag[idx]
                 #print(i, idx, mag[idx])
 
-            if i == 80:
-                # 3) Actualiza las curvas en la figura 2
-                # Señal original X_k vs distancia
-                self.line_sig.set_data(filtered_range_axis, mag)
-                # Umbral CFAR vs distancia
-                self.line_thr.set_data(filtered_range_axis, thresh)
-                # Puntos de detección
-                self.scatter_det.set_offsets(
-                    np.c_[filtered_range_axis[det_indices], mag[det_indices]]
-                )
+            self.grafico_2d(i, filtered_range_axis, mag, thresh, det_indices)
 
-                # 4) Ajusta límites si han cambiado
-                self.ax2.set_xlim(filtered_range_axis[0], filtered_range_axis[-1])
-                # opcional: fijar ylim fijo o basado en min/max de X_k y cfar
-                ymin = min(np.min(mag), np.min(thresh))
-                ymax = max(np.max(mag), np.max(thresh))
-                self.ax2.set_ylim(ymin, ymax)
+        self.grafico_3D(distances, angles, filtered_range_axis, filtered_fft_data)
+        
+        # Reconstruccion de mapa completo
+        if self.accumulated_map is None:
+            # ancho suficiente para 13 matrices
+            self.accumulated_map = np.full((distances.shape[0]* self.total_joints, distances.shape[1]), np.nan)
 
-                # 5) Refresca la figura 2
-                self.fig2.canvas.draw_idle()
+        start_row = self.current_col
+        end_row = start_row + distances.shape[0]
 
-        self.ax_det.clear()
-        # Actualizar el gráfico de detecciones
-        self.im_det = self.ax_det.imshow(
-            distances.T,   # TRANSPOSE: porque primero es rango (eje y), luego ángulo (eje x)
-            aspect='auto',
-            origin='lower',
-            extent=[angles[0], angles[-1], filtered_range_axis[0], filtered_range_axis[-1]],
-            cmap='jet'
-        )
+        # Cuidado de no pasarse del tamaño
+        if end_row <= self.accumulated_map.shape[0]:
+            self.accumulated_map[start_row:end_row, :] = distances
+            self.current_col = end_row
+            self.joint_counter += 1
 
-        # Etiquetas
-        self.ax_det.set_xlabel("Angle [°]")
-        self.ax_det.set_ylabel("Range [m]")
-        self.ax_det.set_title("CFAR Detections Map")
-        #self.ax_det.grid(True)
+        # ----- GRAFICAR EN TIEMPO REAL -----
+        data_acc   = self.accumulated_map.T
+        extent_acc = [0, self.accumulated_map.shape[0], filtered_range_axis[0], filtered_range_axis[-1]]
+
+        if self.im_accum is None:
+            # Primera vez: creamos la imagen y su colorbar
+            self.im_accum = self.ax_accum.imshow(
+                data_acc,
+                aspect='auto',
+                origin='lower',
+                extent=extent_acc,
+                cmap='jet'
+            )
+            self.ax_accum.set_xlabel("Índice de muestra")
+            self.ax_accum.set_ylabel("Range [m]")
+            self.ax_accum.set_title("Mapa en Construcción")
+            self.cbar3 = self.fig_accum.colorbar(
+                self.im_accum,
+                ax=self.ax_accum,
+                label="Magnitud normalizada"
+            )
+        else:
+            # Solo actualizar datos, extent y color scale
+            self.im_accum.set_data(data_acc)
+            self.im_accum.set_extent(extent_acc)
+            self.im_accum.set_clim(vmin=np.nanmin(data_acc), vmax=np.nanmax(data_acc))
+
+
+        # Si ya llegamos a 13 joints
+        if self.joint_counter == self.total_joints:
+            print("¡Se completaron los 13 joints!")
+
+            save_name = f"mapa_acumulado_{time.strftime('%Y%m%d_%H%M%S')}.npy"
+            np.save(save_name, self.accumulated_map)
+            print(f"Matriz acumulada guardada como {save_name}")
+
+            # Resetear para una nueva captura si quieres
+            self.im_accum = None
+            self.accumulated_map = None
+            self.joint_counter = 0
+            self.current_col = 0
+            self.cbar3 = None
+
+        plt.pause(0.001)
+
+    # comparacion señal original con promedio CFAR
+    def grafico_2d(self, i, filtered_range_axis, mag, thresh, det_indices):
+        if i == 80:
+            # 3) Actualiza las curvas en la figura 2
+            # Señal original X_k vs distancia
+            self.line_sig.set_data(filtered_range_axis, mag)
+            # Umbral CFAR vs distancia
+            self.line_thr.set_data(filtered_range_axis, thresh)
+            # Puntos de detección
+            self.scatter_det.set_offsets(
+                np.c_[filtered_range_axis[det_indices], mag[det_indices]]
+            )
+
+            # 4) Ajusta límites si han cambiado
+            self.ax2.set_xlim(filtered_range_axis[0], filtered_range_axis[-1])
+            # opcional: fijar ylim fijo o basado en min/max de X_k y cfar
+            ymin = min(np.min(mag), np.min(thresh))
+            ymax = max(np.max(mag), np.max(thresh))
+            self.ax2.set_ylim(ymin, ymax)
+
+            # 5) Refresca la figura 2
+            self.fig2.canvas.draw_idle()
+
+
+    def grafico_3D(self, distances, angles, filtered_range_axis, filtered_fft_data):
+        data_det = distances.T
+        extent_det = [
+            angles[0], angles[-1], 
+            filtered_range_axis[0], filtered_range_axis[-1]
+        ]
+
+        # ——— GRÁFICO DE DETECCIONES (ax_det) ———
+        if self.im_det is None:
+            # Primera vez: creamos la imagen y su colorbar
+            self.im_det = self.ax_det.imshow(
+                data_det,
+                aspect='auto',
+                origin='lower',
+                extent=extent_det,
+                cmap='jet'
+            )
+            self.ax_det.set_xlabel("Angle [°]")
+            self.ax_det.set_ylabel("Range [m]")
+            self.ax_det.set_title("CFAR Detections Map")
+            self.cbar1 = self.fig.colorbar(self.im_det, ax=self.ax_det, label="Magnitude [dBFS]")
+        else:
+            # Solo actualizar datos y límite de color
+            self.im_det.set_data(data_det)
+            self.im_det.set_extent(extent_det)
+            self.im_det.set_clim(vmin=np.nanmin(data_det), vmax=np.nanmax(data_det))
 
         # grafico
         data = filtered_fft_data.T   # ahora shape [n_rng, n_ang]
@@ -167,21 +254,14 @@ class RadarDataSubscriber(Node):
             )
             # etiquetas y colorbar solo una vez
             self.ax_mag.set_xlabel("Angle [°]")
-            self.ax_mag .set_ylabel("Range [m]")
-            self.cbar = self.fig.colorbar(self.im, ax=self.ax_mag, label="Magnitude [dBFS]")
+            self.ax_mag.set_ylabel("Range [m]")
+            self.cbar2 = self.fig.colorbar(self.im, ax=self.ax_mag, label="Magnitude [dBFS]")
         else:
             # 3) en las siguientes iteraciones actualizamos
             self.im.set_data(data)
             self.im.set_extent(extent)
             # actualizar el rango de la escala de color
             self.im.set_clim(vmin=np.min(data), vmax=np.max(data))
-
-        # 4) ajustamos límites de ejes si es necesario
-        #self.ax.set_xlim(angles[0], angles[-1])
-        #self.ax.set_ylim(filtered_range_axis[0], filtered_range_axis[-1])
-
-        # 5) refrescamos
-        plt.pause(0.001)
 
 def main(args=None):
     rclpy.init(args=args)

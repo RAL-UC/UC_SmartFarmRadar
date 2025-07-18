@@ -10,4 +10,4 @@ set -g mouse on
 tmux source-file ~/.tmux.conf
 ```
 
-atajo de teclago: shift + selección, selecciona como el default y luego Ctrl + Shift + C para copiar
+atajo de teclado: shift + selección, selecciona como el default y luego Ctrl + Shift + C para copiar

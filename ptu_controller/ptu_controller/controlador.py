@@ -31,9 +31,10 @@ class PTUController(Node):
             return
 
         # Enviar comando con terminador CR+LF
+        cmd_str = cmd_str + "\r"
         cmd = f"{cmd_str}".encode('ascii')
         self.ser.write(cmd)
-        self.ser.write("\r\n".encode('ascii'))
+        #self.ser.write("\r\n".encode('ascii'))
         self.get_logger().info(f'Enviado: {cmd!r}')
 
         time.sleep(0.05)  # pequeña espera para asegurar que llegue la respuesta (ajustable)
