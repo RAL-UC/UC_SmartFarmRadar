@@ -1,11 +1,11 @@
-# UC SmartFarm Radar para ROS2 (Humble)
+# UC SmartFarm Radar para ROS2 Humble
 
-Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos de radar utilizando la plataforma de desarollo de arreglos en fase **PhaserX** y controlar un **PTU‑D46**, que permite posicionar dinámicamente el radar en distintas direcciones:
+Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos de radar utilizando la plataforma de desarollo de arreglos en fase [**ADALM-PHASER CN0566** de Analog Devices](https://wiki-analog-com.translate.goog/resources/eval/user-guides/circuits-from-the-lab/cn0566?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc) y controlar un **PTU‑C46**, que permite posicionar dinámicamente el radar en distintas direcciones:
 
 ### Paquetes incluidos
 - **radar_msg**: Definición del mensaje personalizado `RadarData`.
 - **radar_package**: Captura, procesamiento y publicación de datos obtenidos desde el radar por medio de conección ethernet.
-- **ptu_controller**: Control de orientación y elevación del PTU‑D46 mediante comandos seriales.
+- **ptu_package**: Control de orientación y elevación del PTU‑C46 mediante comandos seriales.
 
 ---
 
@@ -19,7 +19,13 @@ Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos
 
 Para trabajar con el hardware de radar (PhaserX), es necesario instalar las siguientes bibliotecas [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio): 
 
-seguir el listado de instrucciones de configuración previa de [Build instructions for libiio](https://github.com/analogdevicesinc/libiio/blob/main/README_BUILD.md) hasta antes de clonar el repositorio. 
+Paquetes de Python requeridos:
+- `pylibiio`
+- `pyadi-iio`
+- `pyserial`
+- `numpy`
+
+Para su instalación se debe seguir el listado de instrucciones de configuración previa de [Build instructions for libiio](https://github.com/analogdevicesinc/libiio/blob/main/README_BUILD.md) hasta antes de clonar el repositorio:
 ```bash
 sudo apt-get update
 sudo apt-get install build-essential
@@ -30,22 +36,16 @@ sudo apt-get install doxygen graphviz
 sudo apt-get install python3 python3-pip python3-setuptools
 ```
 
-Luego descargar libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb.
+Luego descargar libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb:
 ```bash
 sudo apt install ./libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb
 ```
 
-Por ultimo continuar con 
+Por último continuar con:
 ```bash
 pip install pylibiio
 pip install pyadi-iio
 ```
-
-Paquetes de Python requeridos:
-- `pylibiio`
-- `pyadi-iio`
-- `pyserial`
-- `numpy`
 
 ### Construcción del workspace
 
@@ -59,15 +59,13 @@ source install/setup.bash
 ---
 
 ## Ejecución
-### Paquete `ptu_controller`
+### Paquete `ptu_package`
+Para establecer la conexión serial del dispositivo **PTU‑C46** se utiliza un conversor USB a RS-232 modelo TU-S9. 
 
-Ejecuta el nodo de control del PTU‑D46:
+Ejecuta el nodo de control:
 
 ```bash
-ros2 run ptu_controller control_node \
-  --ros-args \
-    -p port:=/dev/ttyUSB0 \
-    -p baudrate:=9600
+ros2 run ptu_package ptu_node
 ```
 
 Para publicar ángulos, los límites por defecto son:
@@ -93,7 +91,7 @@ Suscribirse para visualizar los datos:
 ros2 run radar_package process_data_node
 ```
 
-publicacion de datos al topico:
+Publicación de datos al topico:
 ```bash
 ros2 topic pub /trigger_sweep std_msgs/msg/Bool "data: true"
 ```
