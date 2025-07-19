@@ -23,14 +23,8 @@ ros2 run ptu_controller control_node \
     -p baudrate:=9600
 ```
 
-Para publicar ángulos, los límites por defecto son:
-- Pan (orientación horizontal): de **-158° a +158°**
-- Tilt (elevación): de **-46° a +31°**
 
-```bash
-# Orientar a +30° en pan
-ros2 topic pub /pan_angle  std_msgs/Float64 "{data: 30.0}"
+ls /dev/ttyUSB*
 
-# Inclinar a -20° en tilt
-ros2 topic pub /tilt_angle std_msgs/Float64 "{data: -20.0}"
-```
+ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
+ros2 pkg executables ptu_package

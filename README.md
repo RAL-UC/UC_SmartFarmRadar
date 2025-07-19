@@ -17,7 +17,7 @@ Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos
 
 ### Dependencias del sistema
 
-Para trabajar con el hardware de radar (PhaserX), es necesario instalar las siguientes bibliotecas [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio): 
+Para trabajar con el hardware de radar PhaserX, es necesario instalar las siguientes bibliotecas [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio): 
 
 Paquetes de Python requeridos:
 - `pylibiio`
@@ -45,6 +45,8 @@ Por último continuar con:
 ```bash
 pip install pylibiio
 pip install pyadi-iio
+pip install pyserial
+pip install numpy
 ```
 
 ### Construcción del workspace
@@ -65,19 +67,25 @@ Para establecer la conexión serial del dispositivo **PTU‑C46** se utiliza un 
 Ejecuta el nodo de control:
 
 ```bash
-ros2 run ptu_package ptu_node
+ros2 run ptu_package ptu_node --ros-args -p serial_port:=/dev/ttyUSB0
+ros2 topic pub --once /enable_routine_ptu std_msgs/msg/Bool "{data: true}"
 ```
 
 Para publicar ángulos, los límites por defecto son:
 - Pan (orientación horizontal): de **-158° a +158°**
 - Tilt (elevación): de **-46° a +31°**
 
-```bash
-# Orientar a +30° en pan
-ros2 topic pub /pan_angle  std_msgs/Float64 "{data: 30.0}"
+Se ha creado un nodo de comunicación que permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el manual del dispositivo.
 
-# Inclinar a -20° en tilt
-ros2 topic pub /tilt_angle std_msgs/Float64 "{data: -20.0}"
+```bash
+ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
+```
+
+Se ha creado un nodo para ejecutar una rutina predefinida que en base a una señal habilitadora permite realizar el recorrido:
+
+```bash
+ros2 run ptu_routine ptu_routine_node
+ros2 topic pub --once /enable_routine_ptu std_msgs/msg/Bool "{data: true}"
 ```
 
 ### Paquete `radar_package`

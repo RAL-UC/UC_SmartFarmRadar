@@ -6,7 +6,7 @@
 #include <cstring>
 
 PTUNode::PTUNode() : Node("PTU_node") {
-    std::string port = this->declare_parameter("serial_port", "/dev/ttyUSB1"); // asignar puerto serial
+    std::string port = this->declare_parameter("serial_port", "/dev/ttyUSB0"); // asignar puerto serial
 
     if (open_serial(port)) {
         RCLCPP_INFO(this->get_logger(), "Conectado a PTU en %s", port.c_str());
@@ -100,8 +100,6 @@ std::string PTUNode::read_response() {
 
 void PTUNode::command_callback(const std_msgs::msg::String::SharedPtr msg) {
     send_command(msg->data);
-    //send_command("pp0");
-    //send_command("a");
 }
 
 int main(int argc, char **argv) {
