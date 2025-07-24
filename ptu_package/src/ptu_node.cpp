@@ -1,9 +1,9 @@
 #include "ptu_package/ptu_node.hpp" // cabecera con definicion de la clase PTUNode
 // acceder al puerto serial y manejar mensajes
-#include "std_msgs/msg/string.hpp"
-#include <unistd.h>
-#include <fcntl.h>
-#include <cstring>
+#include "std_msgs/msg/string.hpp" // manejar mensajes de ros
+#include <unistd.h> // acceso a llamadas al sistema operativo
+#include <fcntl.h> // control de archivos en sistemas POSIX
+#include <cstring> // manipulacion de cadenas
 
 PTUNode::PTUNode() : Node("PTU_node") {
     std::string port = this->declare_parameter("serial_port", "/dev/ttyUSB0"); // asignar puerto serial
@@ -14,12 +14,10 @@ PTUNode::PTUNode() : Node("PTU_node") {
         RCLCPP_ERROR(this->get_logger(), "No se pudo abrir el puerto: %s", port.c_str());
     }
     
-    command_subscriber_ = this->create_subscription<std_msgs::msg::String>(
-        "ptu_cmd", 10,
-        std::bind(&PTUNode::command_callback, this, std::placeholders::_1)
-    );
-}
+    // suscripcion a un topico
+    command_subscriber_ = this->create_subscription<std_msgs::msg::String>("ptu_cmd", 10, std::bind(&PTUNode::command_callback, this, std::placeholders::_1));
 
+// cerrar descriptor de archivo asociado a puerto serial si esta abierto
 PTUNode::~PTUNode() {
     if (serial_fd_ >= 0) {
         close(serial_fd_);
@@ -31,8 +29,8 @@ bool PTUNode::open_serial(const std::string &device) {
     serial_fd_ = open(device.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
     if (serial_fd_ < 0) return false;
 
-    struct termios tty;
-    memset(&tty, 0, sizeof tty);
+    struct termios tty; // estructura para configurar el puerto
+    memset(&tty, 0, sizeof tty); // pone todos los bytes de la estructura tty en cero
     if (tcgetattr(serial_fd_, &tty) != 0) return false;
 
     cfsetispeed(&tty, B9600);
