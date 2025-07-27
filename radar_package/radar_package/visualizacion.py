@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, RadioButtons
 from radar_msg.msg import RadarData    # Ajusta al nombre real de tu paquete
 from radar_package.target_detection_dbfs import cfar                 # Ajusta a la ruta real de tu implementación CFAR
-import config_radar as cfgr
+import radar_package.parametros as cfgr
 
 path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
 class RadarVisualizer(Node):

@@ -16,7 +16,7 @@ class RadarDataPublisher(Node):
 
     def publish_data_radar(self):
         ruta = self.get_parameter('ruta_npy').get_parameter_value().string_value
-        arr = np.load(ruta)  # shape (161,4096), dtype float64
+        arr = np.load(ruta) # shape (161,4096), dtype float64
 
         msg = RadarData()
         msg.rows = arr.shape[0]

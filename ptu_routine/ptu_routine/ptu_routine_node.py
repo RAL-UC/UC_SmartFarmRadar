@@ -37,11 +37,11 @@ class PtuRoutineNode(Node):
     def __init__(self):
         super().__init__('ptu_routine_node')
         self.publisher_ = self.create_publisher(String, '/ptu_cmd', 10)
-        self.subscription = self.create_subscription(Bool, '/enable_routine_ptu', self.listener_callback, 10)
+        self.subscription = self.create_subscription(Bool, '/allow_routine_ptu', self.listener_callback, 10)
         self.angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
         self.current_index = 0
 
-        self.get_logger().info('Publica True en /enable_routine_ptu para avanzar.')
+        self.get_logger().info('Publica True en /allow_routine_ptu para avanzar.')
 
     def listener_callback(self, msg: Bool):
         if not msg.data:

@@ -12,13 +12,13 @@ from std_msgs.msg import Bool
 from std_msgs.msg import Header
 import os
 from ament_index_python.packages import get_package_share_directory
-import config_radar as cfgr
+from radar_package.parametros import *
 
 pkg_share = get_package_share_directory('radar_package')
 path_gain = os.path.join(pkg_share, 'resource', 'gain_cal_val.pkl')
 path_phase = os.path.join(pkg_share, 'resource', 'phase_cal_val.pkl')
 
-# herencia de node al instanciar se registra en el grafo de ROS2
+# herencia de node, al instanciar se registra en el grafo de ROS2
 class RadarNode(Node):
     def __init__(self):
         super().__init__('radar_node')
@@ -78,7 +78,7 @@ class RadarNode(Node):
         for ch in range(8):
             phaser.set_chan_phase(ch, 0)
 
-        gains = [8,34,84,127,127,84,34,8]
+        gains = [6, 27, 66, 100, 100, 66, 27, 6]
         for i, g in enumerate(gains):
             phaser.set_chan_gain(i, g, apply_cal=True)
 
@@ -93,10 +93,10 @@ class RadarNode(Node):
             phaser.gpios.gpio_vctrl_2 = 1
 
         # Parámetros de configuración de la señal en sdr
-        sample_rate = cfgr.sample_rate # frecuencia de muestreo
-        center_freq = cfgr.center_freq # 2.2 frecuencia central
-        signal_freq = cfgr.signal_freq # frecuencia de la señal transmitida    
-        fft_size = cfgr.fft_size 
+        sample_rate = sample_rate # frecuencia de muestreo
+        center_freq = center_freq # 2.2 frecuencia central
+        signal_freq = signal_freq # frecuencia de la señal transmitida    
+        fft_size = fft_size 
 
         # Configuración del receptor Rx del SDR
         sdr.sample_rate = int(sample_rate)
@@ -134,10 +134,10 @@ class RadarNode(Node):
         phaser.delay_start_en = 0 # Habilitación del retardo de inicio. 0 = deshabilitado, 1 = habilitado
         phaser.ramp_delay_en = 0 # Habilitación del retardo entre rampas. 0 = sin retardo, 1 = introduce un retardo entre cada rampa
         phaser.trig_delay_en = 0 # Habilitación del retardo en el disparo de la señal (trigger delay). 0 = deshabilitado, 1 = habilitado
-        phaser.ramp_mode = "continuous_triangular" # ramp_mode can be:  "disabled", "continuous_sawtooth", "continuous_triangular", "single_sawtooth_burst", "single_ramp_burst"
-        phaser.sing_ful_tri = (0) # Habilitar/deshabilitar triángulo completo: esto se utiliza con el modo single_ramp_burst
+        phaser.ramp_mode = "continuous_triangular" # puede ser: "disabled", "continuous_sawtooth", "continuous_triangular", "single_sawtooth_burst", "single_ramp_burst"
+        phaser.sing_ful_tri = 0 # deshabilitar/habilitar triángulo completo: esto se utiliza con el modo single_ramp_burst
         phaser.tx_trig_en = 0 # iniciar una rampa con TXdata
-        phaser.enable = 0
+        phaser.enable = 0 # 0 = PLL habilitado, actualiza todos los registros -> colocar al final
 
         # Generación de una señal senoidal
         fs = int(sdr.sample_rate)

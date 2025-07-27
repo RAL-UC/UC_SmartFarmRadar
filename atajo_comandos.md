@@ -28,3 +28,39 @@ ls /dev/ttyUSB*
 
 ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
 ros2 pkg executables ptu_package
+
+
+```bash
+ros2 topic pub /trigger_sweep std_msgs/msg/Bool "data: true"
+```
+
+Conexion PC octa
+conectar a wifi asus ral, desconectar ethernet
+ssh octa@10.42.0.1
+clave 2312
+ros2 launch ral_bunker_navigation square_movement.launch.py
+
+
+Para mover el bunker:
+
+ros2 topic pub -1 /allow std_msgs/msg/Bool data:\ true\
+
+Grabar topicos:
+
+ros2 bag record --all -o <nombre_archivo>
+Ctrl + C para cerrar
+ros2 bag play <nombre_del_bag>
+ros2 topic echo /nombre_del_topico
+
+Desde MI propio PC:
+sudo scp -r octa@10.42.0.1:/home/octa/oli /home/dammr/Downloads/
+
+
+Cambiar owner:
+
+sudo chown -R dammr oli/
+
+consulta memoria
+df -H
+
+client_loop: send disconnect: Broken pipe

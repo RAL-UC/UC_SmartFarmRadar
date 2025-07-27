@@ -36,6 +36,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'radar_sync_node = radar_package.radar_sync_node:main',
             'radar_node = radar_package.radar_node:main',
             'process_data_node = radar_package.process_data_node:main',
             'visulizacion_node = radar_package.visualizacion:main'

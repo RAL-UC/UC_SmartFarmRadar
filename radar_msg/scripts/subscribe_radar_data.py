@@ -6,7 +6,7 @@ from radar_msg.msg import RadarData
 
 class RadarDataSubscriber(Node):
     def __init__(self):
-        super().__init__('subscribe_radar_dara')
+        super().__init__('subscribe_radar_data')
         self.create_subscription(
             RadarData,
             'radar_data',

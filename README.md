@@ -5,7 +5,8 @@ Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos
 ### Paquetes incluidos
 - **radar_msg**: Definición del mensaje personalizado `RadarData`.
 - **radar_package**: Captura, procesamiento y publicación de datos obtenidos desde el radar por medio de conección ethernet.
-- **ptu_package**: Control de orientación y elevación del PTU‑C46 mediante comandos seriales.
+- **ptu_package**: Interfaz de comunicación serial con el PTU-C46.
+- **ptu_routine**: Produce una rutina para controlar orientación y elevación del PTU‑C46.
 
 ---
 
@@ -61,31 +62,30 @@ source install/setup.bash
 ---
 
 ## Ejecución
-### Paquete `ptu_package`
+### PTU-C46
+#### Paquete `ptu_package`
 Para establecer la conexión serial del dispositivo **PTU‑C46** se utiliza un conversor USB a RS-232 modelo TU-S9. 
 
-Ejecuta el nodo de control:
+Ejecuta el nodo de comunicación:
 
 ```bash
 ros2 run ptu_package ptu_node --ros-args -p serial_port:=/dev/ttyUSB0
-ros2 topic pub --once /enable_routine_ptu std_msgs/msg/Bool "{data: true}"
 ```
 
 Para publicar ángulos, los límites por defecto son:
 - Pan (orientación horizontal): de **-158° a +158°**
 - Tilt (elevación): de **-46° a +31°**
 
-Se ha creado un nodo de comunicación que permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el manual del dispositivo.
-
+Se permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el manual del dispositivo [manual del dispositivo](https://www.sustainable-robotics.com/reference/PTU/PTU-manual-D46-2.15.pdf)
 ```bash
 ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
 ```
-
-Se ha creado un nodo para ejecutar una rutina predefinida que en base a una señal habilitadora permite realizar el recorrido:
+#### Paquete `ptu_routine`
+Ejecuta una rutina predefinida que en base a una señal habilitadora permite realizar el recorrido:
 
 ```bash
 ros2 run ptu_routine ptu_routine_node
-ros2 topic pub --once /enable_routine_ptu std_msgs/msg/Bool "{data: true}"
+ros2 topic pub --once /allow_routine_ptu std_msgs/msg/Bool "{data: true}"
 ```
 
 ### Paquete `radar_package`
@@ -99,14 +99,9 @@ Suscribirse para visualizar los datos:
 ros2 run radar_package process_data_node
 ```
 
-Publicación de datos al topico:
+Publicación de datos al topico solo una vez:
 ```bash
-ros2 topic pub /trigger_sweep std_msgs/msg/Bool "data: true"
-```
-
-publicar solo una vez
-```bash
-ros2 topic pub --once /trigger_sweep std_msgs/msg/Bool "data: true"
+ros2 topic pub --once /allow_sweep std_msgs/msg/Bool "data: true"
 ```
 
 ### Paquete `radar_msg`

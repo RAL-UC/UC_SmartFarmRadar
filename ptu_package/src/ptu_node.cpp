@@ -17,6 +17,7 @@ PTUNode::PTUNode() : Node("PTU_node") {
     // suscripcion a un topico
     command_subscriber_ = this->create_subscription<std_msgs::msg::String>("ptu_cmd", 10, std::bind(&PTUNode::command_callback, this, std::placeholders::_1));
 
+}
 // cerrar descriptor de archivo asociado a puerto serial si esta abierto
 PTUNode::~PTUNode() {
     if (serial_fd_ >= 0) {

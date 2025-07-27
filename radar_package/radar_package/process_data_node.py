@@ -64,7 +64,8 @@ class RadarDataSubscriber(Node):
         preview = ', '.join(f'{v:.2f}' for v in flat[:5])
         #self.get_logger().info(f'Primeros 5 valores: [{preview}]')
 
-        arr = arr - self.base_data
+        #arr = arr - self.base_data
+        arr = arr
         arr_min = np.min(arr)
         arr_max = np.max(arr)
 
@@ -74,7 +75,7 @@ class RadarDataSubscriber(Node):
             arr = np.zeros_like(arr)
 
         # ------- PARAMETROS -------
-        fft_size = 1024 * 4
+        fft_size = 1024
         sample_rate = 0.6e6   # Tasa de muestreo (600 kHz)
         plot_freq = 100e3      # Rango total de frecuencia a trazar (Hz)
         signal_freq = 100e3    # Frecuencia de referencia (beat center) en Hz
