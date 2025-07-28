@@ -13,6 +13,8 @@ from std_msgs.msg import Header
 import os
 from ament_index_python.packages import get_package_share_directory # archivos de calibracion
 from radar_package.parametros import *
+#import sys
+#import os
 
 # recursos
 pkg_share = get_package_share_directory('radar_package')
@@ -23,8 +25,11 @@ path_phase = os.path.join(pkg_share, 'resource', 'phase_cal_val.pkl')
 class RadarNode(Node):
     def __init__(self):
         super().__init__('radar_node')
-        self.sdr_uri = SDR_URI
-        self.phaser_uri = PHASER_URI
+        self.retry_count = 0
+        self.max_retries = 1 # -1 para infinitos reintentos
+        self.retry_interval = 5.0 # segundos
+        self.hardware_ready = False
+        self.reconnect_timer = None
 
         # parámetros configurables desde línea de comandos o launch 
         self.declare_parameter('angle_min', -80) # grados
@@ -39,27 +44,41 @@ class RadarNode(Node):
 
         self.angles = np.arange(self.angle_min, self.angle_max+1, self.angle_step) # vector de angulos en recorrido
 
-        # Inicializar hardware
-        self._init_hardware()
-        self.get_logger().info("Término rutina de configuración")
-
         # --- Publisher ---
         # clase de mensaje, nombre del topico, tamaño de buffer
         self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
+        # -- Subscriber ---
         self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
 
-        self.ready_for_allow = True
-        self.get_logger().info("Publicar True en /allow_sweep para iniciar barrido de angulos")
+        # Inicializar hardware
+        self.init_hardware()
 
-    def _init_hardware(self):
+    def init_hardware(self):
         try:
-            sdr = adi.ad9361(uri=self.sdr_uri)
-            phaser = adi.CN0566(uri=self.phaser_uri, sdr=sdr)
+            sdr = adi.ad9361(uri=SDR_URI)
+            phaser = adi.CN0566(uri=PHASER_URI, sdr=sdr)
             self.get_logger().info("Hardware conectado")
         except Exception as e:
             self.get_logger().error(f'Error de conexión con radar: {e}')
-            rclpy.shutdown() # apaga el nodo
+            self.retry_count += 1
+            if self.retry_count > self.max_retries and self.max_retries >= 0:
+                self.get_logger().fatal("Se excedió el número máximo de reintentos. Apagando nodo.")
+
+                if self.reconnect_timer is not None:
+                    self.reconnect_timer.cancel()
+                    self.reconnect_timer = None
+                rclpy.shutdown() # apaga el nodo
+                #os._exit(0)
+                #sys.exit(1)
+            else:
+                self.get_logger().info(f"Reintentando conexión en {self.retry_interval} segundos...")
+                if self.reconnect_timer is None:
+                    self.reconnect_timer = self.create_timer(self.retry_interval, self.init_hardware)
             return
+        
+        if self.reconnect_timer is not None:
+            self.reconnect_timer.cancel()
+            self.reconnect_timer = None
         
         self.get_logger().info("Iniciando rutina de configuración")
         # Configuración del Phaser ADAR1000: gananacia y fase
@@ -228,18 +247,34 @@ class RadarNode(Node):
         self.my_sdr = sdr
         self.my_phaser = phaser
 
+        self.hardware_ready = True
+        self.get_logger().info("Fin rutina de configuración")
+
+        self.ready_for_allow = True
+        self.get_logger().info("Publicar True en /allow_sweep para iniciar barrido de angulos")
+
     def trigger_callback(self, msg):
+        if not self.hardware_ready:
+            self.get_logger().warn("Hardware no listo: Ignorando actividad")
+            return
+    
         if msg.data and self.ready_for_allow:
             self.get_logger().info("/allow_sweep True recibido: Ejecutando barrido")
             self.ready_for_allow = False # bloquea hasta recibir False
-            self._do_sweep()
-        #elif not msg.data:
-        #    self.ready_for_allow = True
-        #    self.get_logger().info("Trigger FALSE recibido -> barrido habilitado de nuevo.")
-        #else:
-        #    self.get_logger().info("Trigger TRUE ignorado -> ya se ejecutó, espera un FALSE para rearmar.")
+            try:
+                self.do_sweep()
+            except Exception as e:
+                self.get_logger().error(f"¡Error durante el barrido! Hardware podría estar desconectado: {e}")
+                self.hardware_ready = False
+                self.retry_count = 0
+                self.get_logger().info(f"Intentando reconexión en {self.retry_interval} segundos...")
+                if self.reconnect_timer is None:
+                    self.reconnect_timer = self.create_timer(self.retry_interval, self.init_hardware)
+            finally:
+                self.ready_for_allow = True
+                self.get_logger().info("Hardware listo: Esperando /allow_sweep True")
 
-    def _do_sweep(self):
+    def do_sweep(self):
         radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
 
         for theta in self.angles:
@@ -310,8 +345,19 @@ class RadarNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = RadarNode()
-    rclpy.spin(node)
+    try:
+        node = RadarNode()
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        print("Nodo interrumpido por el usuario.")
+    except Exception as e:
+        print(f"Excepción no controlada: {e}")
+    finally:
+        #node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+        #sys.exit(0)
+        #os._exit(0)
 
 if __name__ == '__main__':
     main()

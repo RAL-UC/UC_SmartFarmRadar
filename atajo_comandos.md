@@ -1,13 +1,22 @@
-abrir visual studio code en directorio actual:
+### Abrir Visual Studio Code en directorio actual:
 ```bash
-code
+code .
 ```
-
-configuracion tmux
+### COnfiguración de tmux
+Es posible editar archivos de configuración predeterminada. Dentro de las configuraciones se incluye añadir la funcionalidad del mouse para cambiar de pestaña, crear sesiones para mantener sesiones persistentes en la terminal (las sesiones continúan ejecutándose incluso si te desconectas), opciones de cierre de sesione y apertura para volver a trabajar en un punto determinado
 ```bash
 nano ~/.tmux.conf
 set -g mouse on
 tmux source-file ~/.tmux.conf
+tmux new -s magister
+```
+Esto "detaches" la sesión, dejándola en segundo plano.
+
+Volver a una sesion existente
+```bash
+Ctrl + b, luego suelta y presiona d
+tmux attach -t magister
+tmux ls
 ```
 
 atajo de teclado: shift + selección, selecciona como el default y luego Ctrl + Shift + C para copiar
@@ -22,6 +31,9 @@ ros2 run ptu_controller control_node \
     -p port:=/dev/ttyUSB0 \
     -p baudrate:=9600
 ```
+
+creacion de launch
+ros2 launch ptu_routine ptu_routine_launch.py
 
 
 ls /dev/ttyUSB*

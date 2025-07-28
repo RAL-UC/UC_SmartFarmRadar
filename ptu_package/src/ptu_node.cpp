@@ -6,14 +6,22 @@
 #include <cstring> // manipulacion de cadenas
 
 PTUNode::PTUNode() : Node("PTU_node") {
-    std::string port = this->declare_parameter("serial_port", "/dev/ttyUSB0"); // asignar puerto serial
+    port_ = this->declare_parameter("serial_port", "/dev/ttyUSB0"); // asignar puerto serial
 
-    if (open_serial(port)) {
-        RCLCPP_INFO(this->get_logger(), "Conectado a PTU en %s", port.c_str());
+    serial_connected_ = open_serial(port_); // realizar conexion
+
+    if (serial_connected_) {
+        RCLCPP_INFO(this->get_logger(), "Conectado a PTU en %s", port_.c_str());
     } else {
-        RCLCPP_ERROR(this->get_logger(), "No se pudo abrir el puerto: %s", port.c_str());
+        RCLCPP_WARN(this->get_logger(), "No se pudo abrir el puerto: %s. Intentando reconectar...", port_.c_str());
     }
     
+     // intentar reconexión automática cada 5 segundos si está desconectado
+    reconnect_timer_ = this->create_wall_timer(
+        std::chrono::seconds(5),
+        std::bind(&PTUNode::try_reconnect, this)
+    );
+
     // suscripcion a un topico
     command_subscriber_ = this->create_subscription<std_msgs::msg::String>("ptu_cmd", 10, std::bind(&PTUNode::command_callback, this, std::placeholders::_1));
 
@@ -25,8 +33,11 @@ PTUNode::~PTUNode() {
     }
 }
 
-// abrir el puerto en modo lectura y escritura, no terminal de control, espera que las escrituras se completen -> sincrono
+// metodo de clase PTUNode, abrir y configurar el puerto serial indicado, devuelve true si tuvo exito, false si falla
 bool PTUNode::open_serial(const std::string &device) {
+    // apertura del puerto en modo lectura y escritura
+    // no convierte este puerto en la terminal de control del proceso
+    // espera que las escrituras se completen sin buffer
     serial_fd_ = open(device.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
     if (serial_fd_ < 0) return false;
 
@@ -37,44 +48,60 @@ bool PTUNode::open_serial(const std::string &device) {
     cfsetispeed(&tty, B9600);
     cfsetospeed(&tty, B9600);
 
-    tty.c_cflag = CS8 | CLOCAL | CREAD;                 // 8 bits, sin modem control, lectura activa
-    tty.c_cflag &= ~(PARENB | CSTOPB | CRTSCTS);        // sin paridad, 1 stop bit, sin RTS/CTS
-    tty.c_iflag &= ~(IXON | IXOFF | IXANY);             // sin XON/XOFF
-    tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP |
-                     INLCR | IGNCR | ICRNL);            // sin conversión de entrada
-    tty.c_lflag = 0;
-    tty.c_oflag = 0;
-    tty.c_cc[VMIN] = 1;
-    tty.c_cc[VTIME] = 5;
+    tty.c_cflag = CS8 | CLOCAL | CREAD; // 8 bits, sin modem control, lectura activa
+    tty.c_cflag &= ~(PARENB | CSTOPB | CRTSCTS); // sin paridad, 1 stop bit, sin control de flujo RTS/CTS
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY); // sin XON/XOFF
+    // desactiva todas las transformaciones de caracteres de entrada (saltos de línea, retorno de carro, etc)
+    tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // bytes crudos, sin conversión de entrada
+    tty.c_lflag = 0; // sin procesamiento de entrada por línea
+    tty.c_oflag = 0; // sin procesamiento de salida
+    tty.c_cc[VMIN] = 1; // 1 byte de retorno
+    tty.c_cc[VTIME] = 5; // timeout de 0.5s
 
-    tcflush(serial_fd_, TCIOFLUSH);
-    return tcsetattr(serial_fd_, TCSANOW, &tty) == 0;
+    tcflush(serial_fd_, TCIOFLUSH); // limpia tanto el buffer de entrada como de salida del puerto
+    return tcsetattr(serial_fd_, TCSANOW, &tty) == 0; // aplica cambios inmediatos
 }
 
+// recibe el comando que se quiere enviar y no retorna nada
 void PTUNode::send_command(const std::string &cmd) {
-    std::string full_cmd = cmd + '\r';
+    // verificacion de conexion y si hay un descriptor de archivo valido
+    if (!serial_connected_ || serial_fd_ < 0) {
+        RCLCPP_WARN(this->get_logger(), "Puerto serial no conectado. Ignorando comando.");
+        serial_connected_ = false;
+        return;
+    }
+    std::string full_cmd = cmd + '\r'; // comandos con retorno de carro
 
-    // Mostrar los bytes que se enviarán (debug en hex)
+    // mostrar bytes que se enviarán (debug en hex)
     std::ostringstream debug;
     for (unsigned char c : full_cmd) {
         debug << std::hex << std::showbase << (int)c << " ";
     }
 
     RCLCPP_INFO(this->get_logger(),
-        "Comando recibido: '%s'\nBytes enviados: %s",
+        "Comando recibido: '%s'\nBytes enviados: %s\n",
         cmd.c_str(), debug.str().c_str()
     );
 
-    // Limpiar buffer de entrada antes de enviar
-    tcflush(serial_fd_, TCIFLUSH);
+    // evita confundir respuestas antiguas con las nuevas
+    tcflush(serial_fd_, TCIFLUSH); // limpia el buffer de entrada antes de enviar
 
-    // Enviar carácter por carácter con pequeña pausa para emular 'screen'
+    // enviar carácter por carácter con pequeña pausa para emular 'screen'
+    // verificacion de conexion con cierre de descriptor y marca de desconexion
     for (char c : full_cmd) {
-        write(serial_fd_, &c, 1);
-        usleep(3000);  // Espera 3ms entre cada byte
+        if (write(serial_fd_, &c, 1) < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Error al escribir en el puerto. Marcando como desconectado.");
+            if (serial_fd_ >= 0) {
+                close(serial_fd_);
+                serial_fd_ = -1;
+            }
+            serial_connected_ = false;
+            return;
+        }
+        usleep(3000); // espera 3ms entre cada byte
     }
 
-    usleep(100000);  // Espera 100ms antes de intentar leer respuesta
+    usleep(100000); // espera 100ms antes de intentar leer respuesta
 
     std::string response = read_response();
     if (!response.empty()) {
@@ -86,13 +113,22 @@ void PTUNode::send_command(const std::string &cmd) {
 
 
 std::string PTUNode::read_response() {
-    char buf[100];
-    memset(buf, 0, sizeof(buf));
+    char buf[100]; // buffer de 100 caracteres
+    memset(buf, 0, sizeof(buf)); // llenar de 0 el arreglo
 
     int n = read(serial_fd_, buf, sizeof(buf) - 1);  // dejamos 1 byte para el '\0'
-    if (n > 0) {
-        return std::string(buf, n);
+    if (n > 0) { // cantidad de bytes leidos
+    return std::string(buf, n);
+    } else if (n == 0) {
+        RCLCPP_WARN(this->get_logger(), "No se leyó ningún byte del PTU.");
+        return "";
     } else {
+        RCLCPP_ERROR(this->get_logger(), "Error al leer del puerto. Marcando como desconectado.");
+        if (serial_fd_ >= 0) {
+            close(serial_fd_);
+            serial_fd_ = -1;
+        }
+        serial_connected_ = false;
         return "";
     }
 }
@@ -101,9 +137,40 @@ void PTUNode::command_callback(const std_msgs::msg::String::SharedPtr msg) {
     send_command(msg->data);
 }
 
+void PTUNode::try_reconnect() {
+    if (!serial_connected_) {
+        if (max_retries_ >= 0 && retry_count_ >= max_retries_) {
+            RCLCPP_ERROR(this->get_logger(), "Se alcanzó el límite máximo de reconexiones.");
+            reconnect_timer_->cancel();
+            rclcpp::shutdown();
+            return;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Intentando reconectar al PTU en %s...", port_.c_str());
+
+        serial_connected_ = open_serial(port_);
+        if (serial_connected_) {
+            RCLCPP_INFO(this->get_logger(), "Reconexión exitosa al PTU.");
+            retry_count_ = 0; // Reiniciar contador en caso de éxito
+        } else {
+            retry_count_++;
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<PTUNode>());
-    rclcpp::shutdown();
+    try {
+        auto node = std::make_shared<PTUNode>();
+        rclcpp::spin(node);
+    } catch (const std::exception &e) {
+        std::cerr << "Excepción no controlada: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Excepción desconocida atrapada en el nodo." << std::endl;
+    }
+
+    if (rclcpp::ok()) {
+        rclcpp::shutdown();
+    }
     return 0;
 }
