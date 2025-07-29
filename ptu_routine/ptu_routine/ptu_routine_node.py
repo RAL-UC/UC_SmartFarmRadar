@@ -71,9 +71,15 @@ class PtuRoutineNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = PtuRoutineNode()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        print("Nodo interrumpido por el usuario.")
+    except Exception as e:
+        print(f"Excepción no controlada: {e}")
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

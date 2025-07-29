@@ -18,13 +18,16 @@ PTUNode::PTUNode() : Node("PTU_node") {
     
      // intentar reconexión automática cada 5 segundos si está desconectado
     reconnect_timer_ = this->create_wall_timer(
-        std::chrono::seconds(5),
+        retry_interval_,
         std::bind(&PTUNode::try_reconnect, this)
     );
 
     // suscripcion a un topico
     command_subscriber_ = this->create_subscription<std_msgs::msg::String>("ptu_cmd", 10, std::bind(&PTUNode::command_callback, this, std::placeholders::_1));
 
+    // no se comprobara inicializacion si no tan solo conexion
+    // restriccion: se debe esperar correctamente a que el disposivo encienda y ejecute una breve rutina de inicializacion interna
+    //initialize_hardware(); // logica de inicializacion
 }
 // cerrar descriptor de archivo asociado a puerto serial si esta abierto
 PTUNode::~PTUNode() {

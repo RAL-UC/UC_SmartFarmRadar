@@ -32,9 +32,10 @@ def cfar(X_k, num_guard_cells, num_ref_cells, bias=1, cfar_method='average', fa_
         elif (cfar_method == 'smallest'):
             mean = min(lower_mean, upper_mean)
             output = mean + bias
-        elif (cfar_method == 'false_alarm'):
-            refs = np.concatenate((lower_nearby, upper_nearby))
-            noise_variance = np.sum(refs**2 / refs.size)    
+        elif (cfar_method == 'false_alarm'): # tasa de falsas alarmas
+            refs = np.concatenate((lower_nearby, upper_nearby)) # training cells
+            noise_variance = np.sum(refs**2 / refs.size) # varianza estimada del ruido
+            # modelo de ruido Gaussiano (o Rayleigh para amplitudes)
             output = (noise_variance * -2 * np.log(fa_rate))**0.5
         else:
             raise Exception('No CFAR method received')

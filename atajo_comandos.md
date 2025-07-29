@@ -21,6 +21,8 @@ tmux ls
 
 atajo de teclado: shift + selección, selecciona como el default y luego Ctrl + Shift + C para copiar
 
+ros2 bag play --loop UC_SmartFarmRadar/datos/data_sync_radar/data_sync_radar_0.db3
+
 
 colcon build --packages-select ptu_package
 
@@ -33,7 +35,7 @@ ros2 run ptu_controller control_node \
 ```
 
 creacion de launch
-ros2 launch ptu_routine ptu_routine_launch.py
+ros2 launch radar_package launch.py
 
 
 ls /dev/ttyUSB*

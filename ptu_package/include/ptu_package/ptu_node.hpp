@@ -13,20 +13,23 @@ public:
     ~PTUNode(); // destructor: cerrar puerto serie al destruir el objeto
 
 private:
+    //bool initialized_{false}; // estado de inicializacion
+
+    std::string port_; // ruta del dispositivo serial
     int serial_fd_ = -1; // direccion del puerto serial
     bool serial_connected_ = false; // verificacion de conexion
-    std::string port_; // ruta del dispositivo serial
-
-    int retry_count_ = 0;
-    int max_retries_ = 1;
-
-    bool open_serial(const std::string &device); // abrir y configurar puerto serie
-    void send_command(const std::string &cmd); // envio de comando ascii
-    std::string read_response(); // leer respuesta
-    void command_callback(const std_msgs::msg::String::SharedPtr msg); // funcion de llamada para manejar los mensajes de la suscripcion
-
-    void try_reconnect();  // reconexion automatica
 
     rclcpp::TimerBase::SharedPtr reconnect_timer_; // temporizador de reconexion
+    int retry_count_ = 0;
+    int max_retries_ = 1;
+    std::chrono::seconds retry_interval_{5};
+
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_subscriber_; // variable de suscripcion a un topico de texto en ros
+
+    bool open_serial(const std::string &device); // abrir y configurar puerto serie
+    std::string read_response(); // leer respuesta
+    //void initialize_hardware();
+    void try_reconnect();  // reconexion automatica
+    void send_command(const std::string &cmd); // envio de comando ascii
+    void command_callback(const std_msgs::msg::String::SharedPtr msg); // funcion de llamada para manejar los mensajes de la suscripcion
 };

@@ -14,12 +14,15 @@ import os
 from ament_index_python.packages import get_package_share_directory # archivos de calibracion
 from radar_package.parametros import *
 #import sys
-#import os
 
 # recursos
 pkg_share = get_package_share_directory('radar_package')
 path_gain = os.path.join(pkg_share, 'resource', 'gain_cal_val.pkl')
 path_phase = os.path.join(pkg_share, 'resource', 'phase_cal_val.pkl')
+
+class MaxRetriesExceeded(Exception):
+    """Excepción personalizada para indicar que se agotaron los reintentos."""
+    pass
 
 # herencia de node, al instanciar se registra en el grafo de ROS2
 class RadarNode(Node):
@@ -51,7 +54,7 @@ class RadarNode(Node):
         self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
 
         # Inicializar hardware
-        self.init_hardware()
+        self.init_hardware() # restriccion: para inicializar se debe esperar correctamente a que el disposivo encienda
 
     def init_hardware(self):
         try:
@@ -62,14 +65,13 @@ class RadarNode(Node):
             self.get_logger().error(f'Error de conexión con radar: {e}')
             self.retry_count += 1
             if self.retry_count > self.max_retries and self.max_retries >= 0:
-                self.get_logger().fatal("Se excedió el número máximo de reintentos. Apagando nodo.")
+                self.get_logger().fatal("Se excedió el número máximo de reintentos: Apagando nodo radar.")
 
                 if self.reconnect_timer is not None:
                     self.reconnect_timer.cancel()
                     self.reconnect_timer = None
-                rclpy.shutdown() # apaga el nodo
-                #os._exit(0)
-                #sys.exit(1)
+
+                raise MaxRetriesExceeded("Límite de reintentos superado")
             else:
                 self.get_logger().info(f"Reintentando conexión en {self.retry_interval} segundos...")
                 if self.reconnect_timer is None:
@@ -316,7 +318,6 @@ class RadarNode(Node):
             radar_data_matriz.append(s_dbfs)
 
         mat = np.vstack(radar_data_matriz) # shape (161,1024)
-        print(mat.shape)
         
         # GUARDAR DATA .npy
         #save_dir = '/home/dammr/Desktop/UC_SmartFarmRadar/capturas_radar' # Carpeta donde guardar
@@ -345,19 +346,17 @@ class RadarNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
+    node = RadarNode()
     try:
-        node = RadarNode()
         rclpy.spin(node)
     except KeyboardInterrupt:
         print("Nodo interrumpido por el usuario.")
     except Exception as e:
         print(f"Excepción no controlada: {e}")
     finally:
-        #node.destroy_node()
+        node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-        #sys.exit(0)
-        #os._exit(0)
 
 if __name__ == '__main__':
     main()
