@@ -16,6 +16,7 @@ C = 3e8 # velocidad de la luz m/s
 WAVELENGTH = C / OUTPUT_FREQ # longitud de onda
 SLOPE = BANDWIDTH / RAMP_TIME_S # variación de la frecuencia por unidad de tiempo (ancho de banda total) / (duración de la rampa)s
 
+# podria reajustarse segun el calculo y aproximacion dada a los bins
 OFFSET = 10.76e3 # 6666 Hz por metro 10760/6666 = 1.614 metros de offset en medicion de distancia  
 
 RX_GAIN_CHAN0 = 30 # ganancia en la recepcion valor entre -3 y 70 CANAL 0

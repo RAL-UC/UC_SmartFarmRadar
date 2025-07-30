@@ -3,10 +3,10 @@ import rclpy
 from rclpy.node import Node
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, RadioButtons
 from radar_msg.msg import RadarData
 from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
 from radar_package.parametros import *
+from matplotlib.widgets import Slider, RadioButtons
 
 # debo mejorar recurso de datos al infinito
 path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
@@ -36,14 +36,12 @@ class RadarVisualizer(Node):
         self.angle_step  = p('angle_step').get_parameter_value().integer_value
 
         # Funciones de conversión freq <-> range (eje inferior y superior)
-
-        self.freq_to_distance = lambda f: (f - SIGNAL_FREQ) * C / (2 * SLOPE)
+        self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2 * SLOPE)
         self.distance_to_freq = lambda d: SIGNAL_FREQ + (d * 2 * SLOPE / C)
 
         # Ejes y datos que se rellenan en el primer mensaje
         self.freq = None # eje de frecuencias
         self.freq_offset_index = None # corrimiento en bins
-        self.range = None # eje de distancia
         self.valid_indices = None # índices >= 0 m
 
         # Configuración de Matplotlib interactivo
@@ -56,7 +54,7 @@ class RadarVisualizer(Node):
         # FFT 
         self.line, = self.ax.plot([], [], lw=2, label='FFT')
         # Umbral CFAR
-        self.line_thr, = self.ax.plot([], [], '--', lw=1.5, label='CFAR Thresh')
+        self.line_thr, = self.ax.plot([], [], '--', lw=1.5, label='CFAR Threshold')
         # Puntos de detecciones CFAR
         self.scatter_det = self.ax.scatter([], [], s=30, c='r', marker='x', label='Detections')
         # ruido en metodo falsa alarma
@@ -64,7 +62,7 @@ class RadarVisualizer(Node):
         self.line_noise.set_visible(False)
 
         self.ax.set_xlabel("Range [m]")
-        self.ax.set_ylabel("Magnitude") # normalizada min-max
+        self.ax.set_ylabel("MinMax Normalized Magnitude") # normalizada min-max
         #self.ax.legend(loc='upper right')
 
         # eje secundario de rango en la parte superior
@@ -125,21 +123,21 @@ class RadarVisualizer(Node):
         fa_rate = float(self.sld_fa.val)
 
         total_ext = ng + nr
-        mag_ext, unpad = self.extend_with_edge_means(mag, total_ext)
+        mag_ext= self.extend_with_means(mag, total_ext)
 
         # CFAR sobre mag filtrada
         if m == "false_alarm":
             thresh, targets, noise_variance = cfar(mag_ext, num_guard_cells=ng, num_ref_cells=nr, bias=b, cfar_method=m, fa_rate=fa_rate)
-            thresh = unpad(thresh)
-            targets = np.ma.array(unpad(targets), mask=unpad(targets.mask))
+            thresh = self.unpad(thresh, total_ext)
+            targets = np.ma.array(self.unpad(targets, total_ext), mask=self.unpad(targets.mask, total_ext))
             noise_line = np.ones_like(mag) * noise_variance
             self.line_noise.set_data(self.freq, noise_line)
             self.line_noise.set_visible(True)
             self.sld_fa.ax.set_visible(True)
         else:
             thresh, targets = cfar(mag_ext, num_guard_cells=ng, num_ref_cells=nr, bias=b, cfar_method=m)
-            thresh = unpad(thresh)
-            targets = np.ma.array(unpad(targets), mask=unpad(targets.mask))
+            thresh = self.unpad(thresh, total_ext)
+            targets = np.ma.array(self.unpad(targets, total_ext), mask=self.unpad(targets.mask, total_ext))
             self.line_noise.set_visible(False)
             self.sld_fa.ax.set_visible(False)
 
@@ -170,42 +168,33 @@ class RadarVisualizer(Node):
 
     def listener_callback(self, msg: RadarData):
         # Reconstruir matriz original
-        arr = np.array(msg.data, dtype=np.float32) # arreglo vectorial
+        arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
         n_steering_angle, n_bins = [msg.rows, msg.cols]
         mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
-        #mat = mat - self.base_data
-        mat = mat
+        #mat = mat - self.base_data # banda base
 
-        # 2) Construir eje de frecuencia completo y corrimiento
+        # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
         freq_step = freq[1] - freq[0] # SAMPLE_RATE/n_bins
-        offset_idx = int(OFFSET / freq_step)
+        self.freq_offset_index = int(OFFSET / freq_step)
 
-        beat_freq = freq - SIGNAL_FREQ - OFFSET
-        range = (beat_freq * C) / (2 * SLOPE)
+        distance = self.freq_to_distance(freq)
 
         # Filtrar solo distancias >= 0
-        valid = np.where(range >= 0)[0]
+        self.valid_indices = np.where(distance >= 0)[0]
         
         # Desplazar datos en frecuencia y luego filtrar columnas
-        rolled = np.roll(mat, -offset_idx, axis=1)
-        filtered = rolled[:, valid]
+        rolled = np.roll(mat, -self.freq_offset_index, axis=1)
+        self.filtered_data = rolled[:, self.valid_indices]
         
-        # Guardar para las siguientes llamadas
-        self.freq_offset_index = offset_idx
-        self.range = range
-        self.valid_indices = valid
-
-        self.filtered_data = filtered
-        self.freq = freq[valid] - OFFSET
-
+        self.freq = freq[self.valid_indices]
         # Actualizar slider sin mover thumb
         #self.slider.valmax = n_steering_angle - 1
         #self.slider.ax.set_xlim(self.slider.valmin, self.slider.valmax)
 
         # Redibujar en la posición actual del slider
-        raw = self.slider.val
-        idx = int(max(self.slider.valmin, min(raw, self.slider.valmax)))
+        angle = self.slider.val
+        idx = int(max(self.slider.valmin, min(angle, self.slider.valmax)))
         self.update_display(idx)
 
     def on_slider_change(self, val: float):
@@ -213,7 +202,7 @@ class RadarVisualizer(Node):
         if self.filtered_data is not None:
             self.update_display(idx)
 
-    def extend_with_edge_means(self, mag, total_guard_ref):
+    def extend_with_means(self, mag, total_guard_ref):
         """
         Extiende el vector mag agregando `total_guard_ref` celdas al inicio y al final,
         usando el promedio de las primeras y últimas `total_guard_ref` celdas reales
@@ -228,11 +217,12 @@ class RadarVisualizer(Node):
         # Vector extendido
         mag_ext = np.concatenate([pad_start, mag, pad_end])
 
-        # Función para recortar de vuelta
-        def unpad(v):
-            return v[total_guard_ref:-total_guard_ref]
+        return mag_ext
 
-        return mag_ext, unpad
+    # Función para recortar de vuelta
+    def unpad(self, v, total_guard_ref):
+        return v[total_guard_ref:-total_guard_ref]
+
 
 def main(args=None):
     rclpy.init(args=args)

@@ -29,10 +29,21 @@ def generate_launch_description():
         #    name='ptu_routine_node',
         #    output='screen'
         #)
+        #Node(
+        #    package='radar_package',
+        #    executable='visulizacion_node',
+        #    name='visulizacion_node',
+        #    output='screen',
+        #    parameters=[{
+        #        'angle_min': -80,
+        #        'angle_max': 80,
+        #        'angle_step': 1
+        #    }]
+        #),
         Node(
             package='radar_package',
-            executable='visulizacion_node',
-            name='visulizacion_node',
+            executable='process_data_node',
+            name='process_data_node',
             output='screen',
             parameters=[{
                 'angle_min': -80,
