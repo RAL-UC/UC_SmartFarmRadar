@@ -7,7 +7,7 @@ import time
 # positivo izquierda
 # negativo derecha 
 
-# limites
+# limites minimo y maximo de cada grado de libertad
 # paneo
 #PN * -> -3090 -> - 158.91423666666665
 #PX * -> 3090 -> 158.91423666666665
@@ -38,7 +38,7 @@ class PtuRoutineNode(Node):
         super().__init__('ptu_routine_node')
         self.publisher_ = self.create_publisher(String, '/ptu_cmd', 10)
         self.subscription = self.create_subscription(Bool, '/allow_routine_ptu', self.listener_callback, 10)
-        self.angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
+        self.ptu_angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
         self.current_index = 0
 
         self.get_logger().info('Publica True en /allow_routine_ptu para avanzar.')
@@ -48,7 +48,7 @@ class PtuRoutineNode(Node):
             return
 
         # calculo del paso y el comando
-        angulo = self.angles[self.current_index]
+        angulo = self.ptu_angles[self.current_index]
         pasos = grados_a_pasos(angulo)
         comando = f"pp{pasos}"
 
@@ -58,13 +58,13 @@ class PtuRoutineNode(Node):
         self.publisher_.publish(out)
 
         self.get_logger().info(
-            f"Paso {self.current_index+1}/{len(self.angles)}: "
+            f"Paso {self.current_index+1}/{len(self.ptu_angles)}: "
             f"Enviado '{comando.strip()}' ({angulo}° a {pasos} pasos)"
         )
 
         # avanzar el índice y reiniciar si esta al final
         self.current_index += 1
-        if self.current_index >= len(self.angles):
+        if self.current_index >= len(self.ptu_angles):
             self.current_index = 0
             self.get_logger().info("Recorrido completado: próximo True reinicia en ángulo -90°")
 

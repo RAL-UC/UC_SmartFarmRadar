@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from radar_package.parametros import *
 
 def generate_launch_description():
     return LaunchDescription([
@@ -9,9 +10,9 @@ def generate_launch_description():
         #    name='radar_sync_node',                # nombre en 'ros2 node list'
         #    output='screen',                       # salida en la terminal
         #    parameters=[{
-        #        'angle_min': -80,                  # parametros admitidos en la ejecucion
-        #        'angle_max': 80,
-        #        'angle_step': 1
+        #        'angle_min': ANGLE_MIN,                  # parametros admitidos en la ejecucion
+        #        'angle_max': ANGLE_MAX,
+        #        'angle_step': ANGLE_STEP
         #    }]
         #),
         #Node(
@@ -33,23 +34,27 @@ def generate_launch_description():
         #    package='radar_package',
         #    executable='visulizacion_node',
         #    name='visulizacion_node',
-        #    output='screen',
-        #    parameters=[{
-        #        'angle_min': -80,
-        #        'angle_max': 80,
-        #        'angle_step': 1
-        #    }]
+        #    output='screen'
         #),
+        #Node(
+        #    package='radar_package',
+        #    executable='process_data_node',
+        #    name='process_data_node',
+        #    output='screen'
+        #)
+
         Node(
             package='radar_package',
-            executable='process_data_node',
-            name='process_data_node',
-            output='screen',
-            parameters=[{
-                'angle_min': -80,
-                'angle_max': 80,
-                'angle_step': 1
-            }]
+            executable='data_processing_node',
+            name='data_processing_node',
+            output='screen'
         )
+
+        #Node(
+        #    package='radar_package',
+        #    executable='mosaic_node',
+        #    name='mosaic_node',
+        #    output='screen'
+        #)
     ])
 

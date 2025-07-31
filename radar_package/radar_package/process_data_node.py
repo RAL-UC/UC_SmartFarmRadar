@@ -46,7 +46,7 @@ class RadarDataSubscriber(Node):
         self.fig_accum = None
         self.im_accum = None
 
-        self.total_joints = 13 # 180/15 + 1 -> desplazamiento de pantilt de 15 grados
+        self.total_joints = N_MAPS # 180/15 + 1 -> desplazamiento de pantilt de 15 grados
         self.joint_counter = 0
         self.current_col = 0
         self.accumulated_map = None
@@ -61,10 +61,10 @@ class RadarDataSubscriber(Node):
         mat = arr.reshape((n_steering_angle, n_bins))
         #mat = mat - self.base_data # banda base
 
-        # Construir eje de frecuencia completo y corrimiento
+        # Construir eje de frecuencia completo
         freq = np.linspace(-SAMPLE_RATE / 2, SAMPLE_RATE / 2, n_bins, endpoint=False)
-        freq_step = freq[1] - freq[0] # SAMPLE_RATE/n_bins
-        offset_idx = int(OFFSET / freq_step)
+        #freq_step = freq[1] - freq[0] # SAMPLE_RATE/n_bins
+        #offset_idx = int(OFFSET / freq_step)
 
         # Convertir el eje de frecuencias a rango
         # Calcular el beat como diferencia con signal_freq y convertirlo a rango
@@ -74,8 +74,9 @@ class RadarDataSubscriber(Node):
         valid_indices = np.where((distance >= 0))[0]
 
         # Desplazar datos en frecuencia y luego filtrar columnas
-        rolled = np.roll(mat, -offset_idx, axis=1)
-        filtered_data = rolled[:, valid_indices]
+        #rolled = np.roll(mat, -offset_idx, axis=1)
+        #filtered_data = rolled[:, valid_indices]
+        filtered_data = mat[:, valid_indices]
 
         freq = freq[valid_indices]
         distance = self.freq_to_distance(freq)
@@ -107,7 +108,7 @@ class RadarDataSubscriber(Node):
         
         # construccion de mapa completo
         if self.accumulated_map is None:
-            # ancho suficiente para 13 matrices
+            # ancho suficiente para self.total_joints matrices
             self.accumulated_map = np.full((detecciones.shape[0]* self.total_joints, detecciones.shape[1]), 0) # np.nan
 
         start_row = self.current_col # fila actual, se capturan las detecciones del steering angle para desplazamientos del pantilt
@@ -121,9 +122,10 @@ class RadarDataSubscriber(Node):
         
         #self.grafico_mapa_acumulado(self.accumulated_map, distance)
 
-        # llegado a 13 joints
+        # llegado a self.total_joints
         if self.joint_counter == self.total_joints:
-            print("¡Se completaron los 13 joints!")
+            print(f"¡Se completaron los {self.total_joints} joints!")
+            #self.mosaico(self.accumulated_map)
 
             # guardar imagen de detecciones
             #save_name = f"mapa_acumulado_{time.strftime('%Y%m%d_%H%M%S')}.npy"
@@ -236,6 +238,10 @@ class RadarDataSubscriber(Node):
         mag_ext = np.concatenate([pad_start, mag, pad_end])
 
         return mag_ext
+    
+    def mosaico(self, mapa_acumulado):
+        return
+
         
     # Función para recortar de vuelta
     def unpad(self, v, total_guard_ref):

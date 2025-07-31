@@ -107,11 +107,11 @@ class RadarVisualizer(Node):
         """Dibuja FFT + CFAR solamente en los índices válidos"""
         mag = self.filtered_data[idx, :]
 
-        arr_min = np.min(mag)
-        arr_max = np.max(mag)
+        mag_min = np.min(mag)
+        mag_max = np.max(mag)
 
-        if arr_max > arr_min:
-            mag = (mag - arr_min) / (arr_max - arr_min) # normalizacion min-max
+        if mag_max > mag_min:
+            mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
         else:
             mag = np.zeros_like(mag)
 
@@ -175,17 +175,13 @@ class RadarVisualizer(Node):
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
-        freq_step = freq[1] - freq[0] # SAMPLE_RATE/n_bins
-        self.freq_offset_index = int(OFFSET / freq_step)
-
         distance = self.freq_to_distance(freq)
-
-        # Filtrar solo distancias >= 0
+        # filtrar solo distancias >= 0
         self.valid_indices = np.where(distance >= 0)[0]
-        
-        # Desplazar datos en frecuencia y luego filtrar columnas
-        rolled = np.roll(mat, -self.freq_offset_index, axis=1)
-        self.filtered_data = rolled[:, self.valid_indices]
+        self.filtered_data = mat[:, self.valid_indices]
+        # atenuar valores iniciales
+        row_means = np.mean(self.filtered_data, axis=1)
+        self.filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
         
         self.freq = freq[self.valid_indices]
         # Actualizar slider sin mover thumb
