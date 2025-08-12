@@ -66,7 +66,6 @@ class PtuRoutineNode(Node):
         self.current_index += 1
         if self.current_index >= len(self.ptu_angles):
             self.current_index = 0
-            # TODO: add here the logic to send the bunker
             self.get_logger().info("Recorrido completado: próximo True reinicia en ángulo -90°")
 
 def main(args=None):

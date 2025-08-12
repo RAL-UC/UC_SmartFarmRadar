@@ -14,6 +14,7 @@ find_package(ament_cmake_python REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RadarData.msg"
+  "action/NextPose.action"
   DEPENDENCIES std_msgs
 )
 
