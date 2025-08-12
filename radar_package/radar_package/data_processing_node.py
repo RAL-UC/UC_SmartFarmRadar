@@ -2,21 +2,20 @@
 import rclpy
 from rclpy.node import Node
 import numpy as np
-import matplotlib.pyplot as plt
 from radar_msg.msg import RadarData
 from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
 from radar_package.parametros import *
-import time
 
 # debo mejorar recurso de datos al infinito
 path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
 
-class RadarDataSubscriber(Node):
+# nodo de procesamiento de datos
+class RadarDataProcessing(Node):
     def __init__(self):
-        super().__init__('subscribe_radar_data')
+        super().__init__('radar_data_processing')
         self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
 
-        self.base_data = np.load(path_base_data) 
+        self.base_data = np.load(path_base_data) # banda base
         self.ptu_angles = ANGLE0 + STEP_DEG_PTU * np.arange(N_MAPS) # lista de angulos del pantilt
 
         # parámetros configurables
@@ -56,14 +55,15 @@ class RadarDataSubscriber(Node):
         # filtrar solo distancias >= 0
         valid_indices = np.where((distance >= 0))[0]
         filtered_data = mat[:, valid_indices]
-        #freq = freq[valid_indices]
 
         # atenuar valores iniciales
         row_means = np.mean(filtered_data, axis=1)
         filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
 
+        # tamaño de datos
         self.shape_data = [n_steering_angle, len(valid_indices)]
 
+        # acumulacion de segmentos
         self.segmentos.append(filtered_data)
         self.joint_counter += 1
 
@@ -71,7 +71,8 @@ class RadarDataSubscriber(Node):
         if self.joint_counter == N_MAPS:
             self.get_logger().info(f"Se han unido los {N_MAPS} segmentos de captura")
             accumulated_map = np.vstack(self.segmentos)
-            self.mosaico(accumulated_map)
+            combine_map = self.combine_radial_scans(accumulated_map) # combinacion de segmentos con interpolacion 
+            self.generate_detections(self, combine_map) # obtención de detecciones
 
             # guardar imagen de detecciones
             #save_name = f"mapa_acumulado_{time.strftime('%Y%m%d_%H%M%S')}.npy"
@@ -82,35 +83,6 @@ class RadarDataSubscriber(Node):
             self.segmentos = []
             self.joint_counter = 0
 
-
-
-        #distance = self.freq_to_distance(freq)
-        #
-        #
-        #
-        #
-        #detecciones = np.full((n_steering_angle, len(freq)), 0) # np.nan
-        #
-        #for i, mag in enumerate(filtered_data):
-        #    mag_min = np.min(mag)
-        #    mag_max = np.max(mag)
-        #
-        #    if mag_max > mag_min:
-        #        mag = (mag - mag_min) / (mag_max - mag_min)
-        #    else:
-        #        mag = np.zeros_like(mag)
-        #    num_guard_cells = 5
-        #    num_ref_cells = 15
-        #    total_ext = num_guard_cells + num_ref_cells
-        #    mag_ext = self.extend_with_means(mag, total_ext)
-        #    thresh, targets = cfar(mag_ext, num_guard_cells=5, num_ref_cells=15, bias=0.1, cfar_method='average')
-        #    thresh = self.unpad(thresh, total_ext)
-        #    targets = np.ma.array(self.unpad(targets, total_ext), mask=self.unpad(targets.mask, total_ext))
-        #    det_indices = np.where(targets.mask)[0] # posiciones no enmascaradas
-        #    
-        #    detecciones[i, det_indices] = 1 # mag[det_indices] o 255
-
-
     def extend_with_means(self, mag, total_guard_ref):
         """
         Extiende el vector mag agregando `total_guard_ref` celdas al inicio y al final,
@@ -119,16 +91,20 @@ class RadarDataSubscriber(Node):
         mean_start = np.mean(mag[:total_guard_ref])
         mean_end = np.mean(mag[-total_guard_ref:])
 
-        # Relleno
+        # relleno
         pad_start = np.full(total_guard_ref, mean_start)
         pad_end = np.full(total_guard_ref, mean_end)
 
-        # Vector extendido
+        # vector extendido
         mag_ext = np.concatenate([pad_start, mag, pad_end])
 
         return mag_ext
     
-    def mosaico(self, accumulated_map):
+    # recortar vector
+    def unpad(self, v, total_guard_ref):
+        return v[total_guard_ref:-total_guard_ref]
+    
+    def combine_radial_scans(self, accumulated_map):
         half_fov = FOV / 2.0 # division del FOV
         angulos_seg = [np.linspace(c - half_fov, c + half_fov, self.shape_data[0]) for c in self.ptu_angles] # angulos que cubre cada segmento
 
@@ -136,7 +112,7 @@ class RadarDataSubscriber(Node):
         all_angles = np.concatenate(angulos_seg)
         global_angles = np.unique(all_angles)
 
-        mapa_mosaico = np.zeros((GLOBAL_ANGLES, self.shape_data[1])) # tamaño mapa global
+        combine_map = np.zeros((GLOBAL_ANGLES, self.shape_data[1])) # mapa global
 
         # para cada frecuencia
         for j in range(self.shape_data[1]): # de 0 a 321 
@@ -158,39 +134,60 @@ class RadarDataSubscriber(Node):
 
                 # para un solo valor: lo devolvemos tal cual
                 if len(vals) == 1:
-                    mapa_mosaico[k, j] = vals[0]
+                    combine_map[k, j] = vals[0]
 
                 # para varios valores: media ponderada con pesos normalizados
                 elif len(vals) > 1:
                     pesos = np.array(pesos)
                     vals  = np.array(vals)
                     pesos_norm = pesos / pesos.sum() # la suma debe ser igual a 1
-                    mapa_mosaico[k, j] = np.dot(pesos_norm, vals)
+                    combine_map[k, j] = np.dot(pesos_norm, vals)
 
                 # cuando ningún segmento cubre el ángulo
                 else:
-                    mapa_mosaico[k, j] = 0
+                    combine_map[k, j] = 0
             
-        return mapa_mosaico
+        return combine_map
 
+    def generate_detections(self, combine_map):
+        # genera detecciones de forma binaria utilizando algoritmo cfar
+        detecciones = np.full((self.shape_data[0], self.shape_data[1]), 0) # np.nan
         
-    # Función para recortar de vuelta
-    def unpad(self, v, total_guard_ref):
-        return v[total_guard_ref:-total_guard_ref]
+        for i, mag in enumerate(combine_map):
+            mag_min = np.min(mag)
+            mag_max = np.max(mag)
+        
+            if mag_max > mag_min:
+                mag = (mag - mag_min) / (mag_max - mag_min)
+            else:
+                mag = np.zeros_like(mag)
+            num_guard_cells = 5
+            num_ref_cells = 15
+            total_ext = num_guard_cells + num_ref_cells
+            mag_ext = self.extend_with_means(mag, total_ext)
+            thresh, targets = cfar(mag_ext, num_guard_cells=5, num_ref_cells=15, bias=0.1, cfar_method='average')
+            thresh = self.unpad(thresh, total_ext)
+            targets = np.ma.array(self.unpad(targets, total_ext), mask=self.unpad(targets.mask, total_ext))
+            det_indices = np.where(targets.mask)[0] # posiciones no enmascaradas
+            
+            detecciones[i, det_indices] = 1 # mag[det_indices] o 255
+
+        return detecciones
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = RadarDataSubscriber()
+    node = RadarDataProcessing()
     try:
-        while rclpy.ok():
-            rclpy.spin_once(node, timeout_sec=0.1)  # Escucha un poco y sigue
-            plt.pause(0.001) # Permite actualizar la ventana matplotlib
+        rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        print("Nodo interrumpido por el usuario.")
+    except Exception as e:
+        print(f"Excepción no controlada: {e}")
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

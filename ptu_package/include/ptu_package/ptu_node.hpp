@@ -4,7 +4,8 @@
 #include "rclcpp/rclcpp.hpp" // librería base de ROS 2 en C++
 #include "std_msgs/msg/string.hpp" // manejo de mensajes de ros
 #include <string> // manipulacion de cadenas 
-#include <termios.h> // controlar la configuración del puerto serial
+#include <mutex>
+#include <chrono>
 
 // definicion de clase que herede de un nodo ros2
 class PTUNode : public rclcpp::Node {
@@ -19,12 +20,13 @@ private:
     int serial_fd_ = -1; // direccion del puerto serial
     bool serial_connected_ = false; // verificacion de conexion
 
-    rclcpp::TimerBase::SharedPtr reconnect_timer_; // temporizador de reconexion
     int retry_count_ = 0;
     int max_retries_ = 1;
     std::chrono::seconds retry_interval_{5};
 
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_subscriber_; // variable de suscripcion a un topico de texto en ros
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr feedback_pub_; // variable de publicacion de un topico de texto en ros
+    rclcpp::TimerBase::SharedPtr reconnect_timer_; // temporizador de reconexion
 
     bool open_serial(const std::string &device); // abrir y configurar puerto serie
     std::string read_response(); // leer respuesta
