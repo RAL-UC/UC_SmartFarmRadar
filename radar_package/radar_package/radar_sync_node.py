@@ -58,9 +58,9 @@ class RadarNode(Node):
 
     def init_hardware(self):
         try:
+            self.get_logger().info("Intentando conexión")
             sdr = adi.ad9361(uri=SDR_URI)
             phaser = adi.CN0566(uri=PHASER_URI, sdr=sdr)
-            self.get_logger().info("Hardware conectado")
         except Exception as e:
             self.get_logger().error(f'Error de conexión con radar: {e}')
             self.retry_count += 1
@@ -78,6 +78,7 @@ class RadarNode(Node):
                     self.reconnect_timer = self.create_timer(self.retry_interval, self.init_hardware)
             return
         
+        self.get_logger().info("Hardware conectado")
         if self.reconnect_timer is not None:
             self.reconnect_timer.cancel()
             self.reconnect_timer = None

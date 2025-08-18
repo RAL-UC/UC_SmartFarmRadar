@@ -29,9 +29,12 @@ private:
     rclcpp::TimerBase::SharedPtr reconnect_timer_; // temporizador de reconexion
 
     bool open_serial(const std::string &device); // abrir y configurar puerto serie
-    std::string read_response(); // leer respuesta
+    std::string read_response(std::chrono::milliseconds total_timeout = std::chrono::milliseconds(600)); // leer respuesta
     //void initialize_hardware();
     void try_reconnect();  // reconexion automatica
     void send_command(const std::string &cmd); // envio de comando ascii
     void command_callback(const std_msgs::msg::String::SharedPtr msg); // funcion de llamada para manejar los mensajes de la suscripcion
+    void close_serial_nolock();
+
+    std::mutex serial_mtx_;
 };

@@ -40,8 +40,10 @@ class PtuRoutineNode(Node):
         super().__init__('ptu_routine_node')
         # topicos
         self.cmd_pub = self.create_publisher(String, '/ptu_cmd', 10)
-        self.allow_sub = self.create_subscription(Bool, '/allow_routine_ptu', self.listener_callback, 10)
+        self.allow_sub = self.create_subscription(Bool, '/allow_routine_ptu', self.allow_cb, 10)
         self.rx_sub = self.create_subscription(String, '/ptu_response', self.rx_cb, 50)
+        self.beamforming_pub = self.create_publisher(Bool, '/allow_beamforming', 10)
+        self.allow_bunker_pub = self.create_publisher(Bool, '/allow_bunker', 10)
 
         self.ptu_angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
         self.current_index = 0
@@ -61,6 +63,9 @@ class PtuRoutineNode(Node):
     def allow_cb(self, msg: Bool):
         if not msg.data or self.waiting_for_pp:
             return
+        
+        if self.current_index >= len(self.ptu_angles):
+            self.current_index = 0
 
         # calculo del paso y el comando
         angulo = self.ptu_angles[self.current_index]
@@ -127,14 +132,20 @@ class PtuRoutineNode(Node):
             self.query_timer = None
 
         ang = pasos_a_grados(pos_steps)
-        self.get_logger().info(
-            f"Llegó a {pos_steps} pasos ({ang:.2f}°)."
-        )
+        self.get_logger().info(f"Llegó a {pos_steps} pasos ({ang:.2f}°).")
 
         # avanzar índice y reiniciar si esta al final
-        self.current_index += 1
-        if self.current_index >= len(self.ptu_angles):
+        if self.current_index < len(self.ptu_angles) - 1:
+            msg = Bool()
+            msg.data = True
+            self.beamforming_pub.publish(msg)
+            self.current_index += 1
+
+        else:
             self.current_index = 0
+            msg = Bool()
+            msg.data = True
+            self.allow_bunker_pub.publish(msg)
             self.get_logger().info("Recorrido completado. Siguiente True reinicia en -90°.")
 
     def _on_query_timeout(self):
@@ -153,6 +164,7 @@ class PtuRoutineNode(Node):
         line = msg.data.strip()
         # busca entero con signo en la línea
         m = re.search(r'Current\s+Pan\s+position\s+is\s+(-?\d+)', line, re.IGNORECASE)
+        self.get_logger().info(f"mensaje: {m}")
         if m:
             pos = int(m.group(1))
             self.last_rx_position = pos
