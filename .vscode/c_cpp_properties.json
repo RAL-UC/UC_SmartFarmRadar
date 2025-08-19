@@ -1,0 +1,56 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/octa/magister/magister_ws/install/radar_msg/include/**",
+        "/home/octa/magister/magister_ws/install/bunker_msgs/include/**",
+        "/home/octa/Caleuche/caleuche_uav_interfaces_ws/install/px4_msgs/include/**",
+        "/home/octa/Caleuche/caleuche_uav_interfaces_ws/install/caleuche_interfaces/include/**",
+        "/home/octa/Caleuche/caleuche_ws/install/yasmin_viewer/include/**",
+        "/home/octa/Caleuche/caleuche_ws/install/yasmin_ros/include/**",
+        "/home/octa/Caleuche/caleuche_ws/install/yasmin_msgs/include/**",
+        "/home/octa/Caleuche/caleuche_ws/install/yasmin/include/**",
+        "/home/octa/Caleuche/caleuche_ws/install/pid_library/include/**",
+        "/home/octa/Caleuche/caleuche_ws/install/caleuche_sim_interfaces/include/**",
+        "/home/octa/Caleuche/caleuche_ws/install/caleuche_interfaces/include/**",
+        "/home/octa/Oddness/oddness_ws/install/tsp_core/include/**",
+        "/home/octa/Oddness/oddness_ws/install/oddness_robot_tsp_crown/include/**",
+        "/home/octa/Oddness/oddness_ws/install/oddness_robot_picker/include/**",
+        "/home/octa/Oddness/oddness_ws/install/ikea_navigation/include/**",
+        "/home/octa/Oddness/tricycle_ws/install/turtlebot3_gazebo/include/**",
+        "/home/octa/Oddness/tricycle_ws/install/turtlebot3_fake_node/include/**",
+        "/home/octa/Oddness/tricycle_ws/install/nav2_straightline_planner/include/**",
+        "/home/octa/Oddness/tricycle_ws/install/nav2_sms_behavior/include/**",
+        "/home/octa/Oddness/tricycle_ws/install/nav2_pure_pursuit_controller/include/**",
+        "/home/octa/Oddness/tricycle_ws/install/ign_ros2_control/include/**",
+        "/home/octa/ros2_ws/install/yasmin_viewer/include/**",
+        "/home/octa/ros2_ws/install/yasmin_ros/include/**",
+        "/home/octa/ros2_ws/install/yasmin_msgs/include/**",
+        "/home/octa/ros2_ws/install/yasmin/include/**",
+        "/home/octa/ros2_ws/install/turtlebot3_gazebo/include/**",
+        "/home/octa/ros2_ws/install/turtlebot3_fake_node/include/**",
+        "/home/octa/ros2_ws/install/ros2_bag_to_image/include/**",
+        "/home/octa/ros2_ws/install/pid_library/include/**",
+        "/home/octa/ros2_ws/install/microstrain_inertial_msgs/include/**",
+        "/home/octa/ros2_ws/install/ign_ros2_control/include/**",
+        "/home/octa/ros2_ws/install/gazebo_ros2_control/include/**",
+        "/home/octa/ros2_ws/install/cmd_vel_mux/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/octa/magister/magister_ws/src/UC_SmartFarmRadar/ptu_package/include/**",
+        "/home/octa/magister/magister_ws/src/ral_bunker/bunker_ros2/bunker_base/include/**",
+        "/home/octa/magister/magister_ws/src/ral_bunker/ugv_sdk/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
