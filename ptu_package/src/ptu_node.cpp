@@ -23,10 +23,7 @@ PTUNode::PTUNode() : Node("PTU_node") {
     }
     
      // intentar reconexión automática cada 5 segundos si está desconectado
-    reconnect_timer_ = this->create_wall_timer(
-        retry_interval_,
-        std::bind(&PTUNode::try_reconnect, this)
-    );
+    reconnect_timer_ = this->create_wall_timer(retry_interval_, std::bind(&PTUNode::try_reconnect, this));
 
     // suscripcion a un topico
     command_subscriber_ = this->create_subscription<std_msgs::msg::String>("ptu_cmd", 10, std::bind(&PTUNode::command_callback, this, std::placeholders::_1));
@@ -169,12 +166,11 @@ void PTUNode::send_command(const std::string &cmd) {
 }
 
 
-std::string PTUNode::read_response() {
+std::string PTUNode::read_response(std::chrono::milliseconds total_timeout) {
     std::string out;
     char buf[128]; // buffer de 100 caracteres
     //memset(buf, 0, sizeof(buf)); // llenar de 0 el arreglo
     const auto start = std::chrono::steady_clock::now();
-    const auto max_wait = std::chrono::milliseconds(600); // timeout total aprox
 
     //int n = read(serial_fd_, buf, sizeof(buf) - 1);  // dejamos 1 byte para el '\0'
     //if (n > 0) { // cantidad de bytes leidos
@@ -200,13 +196,12 @@ std::string PTUNode::read_response() {
             }
         } else if (n == 0) {
             // nada disponible ahora; ¿expiró el timeout total?
-            if (std::chrono::steady_clock::now() - start > max_wait) break;
+            if (std::chrono::steady_clock::now() - start > total_timeout) break;
             usleep(10000); // 10ms y reintenta
         } else {
             // error de lectura
             RCLCPP_ERROR(this->get_logger(), "Error al leer del puerto. Marcando como desconectado.");
-            if (serial_fd_ >= 0) { close(serial_fd_); serial_fd_ = -1; }
-            serial_connected_ = false;
+            close_serial_nolock();
             return "";
         }
     }
@@ -218,25 +213,25 @@ void PTUNode::command_callback(const std_msgs::msg::String::SharedPtr msg) {
 }
 
 void PTUNode::try_reconnect() {
-    std::lock_guard<std::mutex> lk(serial_mtx_);
-    if (!serial_connected_) {
-        if (max_retries_ >= 0 && retry_count_ >= max_retries_) {
-            RCLCPP_ERROR(this->get_logger(), "Se alcanzó el límite máximo de reconexiones.");
-            reconnect_timer_->cancel();
-            rclcpp::shutdown();
-            return;
-        }
+  std::lock_guard<std::mutex> lk(serial_mtx_);
 
-        RCLCPP_INFO(this->get_logger(), "Intentando reconectar al PTU en %s...", port_.c_str());
+  if (serial_connected_) return;
 
-        serial_connected_ = open_serial(port_);
-        if (serial_connected_) {
-            RCLCPP_INFO(this->get_logger(), "Reconexión exitosa al PTU.");
-            retry_count_ = 0; // Reiniciar contador en caso de éxito
-        } else {
-            retry_count_++;
-        }
-    }
+  if (max_retries_ >= 0 && retry_count_ >= max_retries_) {
+    RCLCPP_ERROR(this->get_logger(), "Se alcanzó el límite máximo de reconexiones (%d). Apagando ROS...", max_retries_);
+    reconnect_timer_->cancel();
+    close_serial_nolock();   // cierra descriptor si quedaba abierto
+    rclcpp::shutdown();      // APAGA TODO ROS (todos los nodos)
+    return;
+  }
+
+  RCLCPP_INFO(this->get_logger(), "Intentando reconectar al PTU en %s...", port_.c_str());
+  if (open_serial(port_)) {
+    RCLCPP_INFO(this->get_logger(), "Reconexión exitosa al PTU.");
+    retry_count_ = 0;
+  } else {
+    retry_count_++;
+  }
 }
 
 int main(int argc, char **argv) {

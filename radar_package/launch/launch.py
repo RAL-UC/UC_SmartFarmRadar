@@ -24,12 +24,12 @@ def generate_launch_description():
                 'serial_port': '/dev/ttyUSB0'
             }]
         ),
-        #Node(
-        #    package='ptu_routine',
-        #    executable='ptu_routine_node',
-        #    name='ptu_routine_node',
-        #    output='screen'
-        #),
+        Node(
+            package='ptu_routine',
+            executable='ptu_routine_node',
+            name='ptu_routine_node',
+            output='screen'
+        ),
         #Node(
         #    package='radar_package',
         #    executable='visulizacion_node',
