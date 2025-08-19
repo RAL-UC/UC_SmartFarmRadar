@@ -1,5 +1,5 @@
 bool go_to_next_pose
 ---
-float32 distance_to_goal
----
 bool success
+---
+float32 distance_to_goal
