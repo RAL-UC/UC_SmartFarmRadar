@@ -10,6 +10,7 @@ class StateMachine(Node):
     def __init__(self):
         super().__init__('state_machine')
         self._bunker_action_client = ActionClient(self, NextPose, 'next_pose')
+        self.send_bunker_next_goal()
 
     def send_bunker_next_goal(self):
         goal_msg = NextPose.Goal()
