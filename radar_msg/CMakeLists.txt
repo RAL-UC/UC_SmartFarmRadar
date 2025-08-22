@@ -11,11 +11,15 @@ find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(ament_cmake_python REQUIRED)
+find_package(action_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RadarData.msg"
-  "msg/RadarCartesian.msg" 
-  DEPENDENCIES std_msgs
+  "msg/RadarCartesian.msg"
+  "action/Beamform.action"
+  "action/PtuSweep.action"
+  DEPENDENCIES builtin_interfaces action_msgs std_msgs
 )
 
 ament_export_dependencies(rosidl_default_runtime)
