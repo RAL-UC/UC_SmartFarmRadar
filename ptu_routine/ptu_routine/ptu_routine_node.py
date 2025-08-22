@@ -3,6 +3,8 @@ from rclpy.node import Node
 from std_msgs.msg import String, Bool
 import time
 import re
+from rclpy.action import ActionClient
+from radar_msg.action import Beamform
 
 # convencion
 # positivo izquierda
@@ -42,8 +44,10 @@ class PtuRoutineNode(Node):
         self.cmd_pub = self.create_publisher(String, '/ptu_cmd', 10)
         self.allow_sub = self.create_subscription(Bool, '/allow_routine_ptu', self.allow_cb, 10)
         self.rx_sub = self.create_subscription(String, '/ptu_response', self.rx_cb, 50)
-        self.beamforming_pub = self.create_publisher(Bool, '/allow_beamforming', 10)
+        #self.beamforming_pub = self.create_publisher(Bool, '/allow_beamforming', 10)
         self.allow_bunker_pub = self.create_publisher(Bool, '/allow_bunker', 10)
+
+        self._beamform_client = ActionClient(self, Beamform, 'beamform')
 
         self.ptu_angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
         self.current_index = 0

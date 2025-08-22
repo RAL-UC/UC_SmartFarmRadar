@@ -14,6 +14,7 @@ find_package(ament_cmake_python REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RadarData.msg"
+  "msg/RadarCartesian.msg" 
   DEPENDENCIES std_msgs
 )
 

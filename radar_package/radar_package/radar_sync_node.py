@@ -14,6 +14,8 @@ import os
 from ament_index_python.packages import get_package_share_directory # archivos de calibracion
 from radar_package.parametros import *
 #import sys
+from rclpy.action import ActionServer
+from radar_msg.action import Beamform
 
 # recursos
 pkg_share = get_package_share_directory('radar_package')
@@ -51,7 +53,10 @@ class RadarNode(Node):
         # clase de mensaje, nombre del topico, tamaño de buffer
         self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
         # -- Subscriber ---
-        self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
+        #self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
+
+        # servidor
+        self._beamform_server = ActionServer(self, Beamform, 'beamform', self.execute_beamform_cb)
 
         # Inicializar hardware
         self.init_hardware() # restriccion: para inicializar se debe esperar correctamente a que el disposivo encienda
@@ -253,29 +258,75 @@ class RadarNode(Node):
         self.hardware_ready = True
         self.get_logger().info("Fin rutina de configuración")
 
-        self.ready_for_allow = True
+        #self.ready_for_allow = True
         self.get_logger().info("Publicar True en /allow_sweep para iniciar barrido de angulos")
 
-    def trigger_callback(self, msg):
+
+    async def execute_beamform_cb(self, goal_handle):
+        """
+        Ejecuta una adquisición beamforming y publica el RadarData resultante. Devuelve success/message.
+        """
+        angle = int(goal_handle.request.angle_deg)
+        self.get_logger().info(f"[Radar] Goal recibida: beamforming en {angle}°")
+
+        feedback = Beamform.Feedback()
+        feedback.status = "Inicializando adquisición"
+        goal_handle.publish_feedback(feedback)
+
+        # Validación de estado de HW
         if not self.hardware_ready:
-            self.get_logger().warn("Hardware no listo: Ignorando actividad")
-            return
-    
-        if msg.data and self.ready_for_allow:
-            self.get_logger().info("/allow_sweep True recibido: Ejecutando barrido")
-            self.ready_for_allow = False # bloquea hasta recibir False
-            try:
-                self.do_sweep()
-            except Exception as e:
-                self.get_logger().error(f"¡Error durante el barrido! Hardware podría estar desconectado: {e}")
-                self.hardware_ready = False
-                self.retry_count = 0
-                self.get_logger().info(f"Intentando reconexión en {self.retry_interval} segundos...")
-                if self.reconnect_timer is None:
-                    self.reconnect_timer = self.create_timer(self.retry_interval, self.init_hardware)
-            finally:
-                self.ready_for_allow = True
-                self.get_logger().info("Hardware listo: Esperando /allow_sweep True")
+            feedback.status = "Hardware no listo; abortando"
+            goal_handle.publish_feedback(feedback)
+            goal_handle.abort()
+            result = Beamform.Result()
+            result.success = False
+            result.message = "Hardware no listo"
+            return result
+
+        try:
+            feedback.status = "Adquiriendo y procesando"
+            goal_handle.publish_feedback(feedback)
+
+            # Ejecuta la misma lógica que tu barrido, pero con un solo ángulo
+            self.do_sweep()
+
+            feedback.status = "Publicación RadarData completada"
+            goal_handle.publish_feedback(feedback)
+
+            goal_handle.succeed()
+            result = Beamform.Result()
+            result.success = True
+            result.message = f"Beamforming OK en {angle}°"
+            return result
+
+        except Exception as e:
+            self.get_logger().error(f"Error en beamforming: {e}")
+            goal_handle.abort()
+            result = Beamform.Result()
+            result.success = False # faltara reconexion ?
+            result.message = f"Error: {e}"
+            return result
+
+    #def trigger_callback(self, msg):
+    #    if not self.hardware_ready:
+    #        self.get_logger().warn("Hardware no listo: Ignorando actividad")
+    #        return
+    #
+    #    if msg.data and self.ready_for_allow:
+    #        self.get_logger().info("/allow_sweep True recibido: Ejecutando barrido")
+    #        self.ready_for_allow = False # bloquea hasta recibir False
+    #        try:
+    #            self.do_sweep()
+    #        except Exception as e:
+    #            self.get_logger().error(f"¡Error durante el barrido! Hardware podría estar desconectado: {e}")
+    #            self.hardware_ready = False
+    #            self.retry_count = 0 # reconexion
+    #            self.get_logger().info(f"Intentando reconexión en {self.retry_interval} segundos...")
+    #            if self.reconnect_timer is None:
+    #                self.reconnect_timer = self.create_timer(self.retry_interval, self.init_hardware)
+    #        finally:
+    #            self.ready_for_allow = True
+    #            self.get_logger().info("Hardware listo: Esperando /allow_sweep True")
 
     def do_sweep(self):
         radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
@@ -342,7 +393,7 @@ class RadarNode(Node):
         self.pub_matrix.publish(msg)
         self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
 
-        self.ready_for_allow = True
+        #self.ready_for_allow = True
         self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
 
 def main(args=None):

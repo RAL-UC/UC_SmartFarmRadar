@@ -5,6 +5,7 @@ import numpy as np
 from radar_msg.msg import RadarData
 from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
 from radar_package.parametros import *
+from radar_msg.msg import RadarCartesian
 
 # debo mejorar recurso de datos al infinito
 path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
@@ -14,6 +15,7 @@ class RadarDataProcessing(Node):
     def __init__(self):
         super().__init__('radar_data_processing')
         self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
+        self.cart_pub = self.create_publisher(RadarCartesian, 'radar_cartesian', 10)
 
         self.base_data = np.load(path_base_data) # banda base
         self.ptu_angles = ANGLE0 + STEP_DEG_PTU * np.arange(N_MAPS) # lista de angulos del pantilt
@@ -56,6 +58,8 @@ class RadarDataProcessing(Node):
         valid_indices = np.where((distance >= 0))[0]
         filtered_data = mat[:, valid_indices]
 
+        self.freq_axis = freq[valid_indices] # eje frecuencias valido
+
         # atenuar valores iniciales
         row_means = np.mean(filtered_data, axis=1)
         filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
@@ -71,8 +75,28 @@ class RadarDataProcessing(Node):
         if self.joint_counter == N_MAPS:
             self.get_logger().info(f"Se han unido los {N_MAPS} segmentos de captura")
             accumulated_map = np.vstack(self.segmentos)
-            combine_map = self.combine_radial_scans(accumulated_map) # combinacion de segmentos con interpolacion 
-            self.generate_detections(self, combine_map) # obtención de detecciones
+            segmentos = accumulated_map.reshape((N_MAPS, self.shape_data[0], self.shape_data[1]))
+            combine_map, global_angles = self.combine_radial_scans(segmentos) # combinacion de segmentos con interpolacion 
+            detecciones = self.generate_detections(combine_map) # obtención de detecciones
+
+            #self.get_logger().info(f"tamaño detecciones: {detecciones.shape}")
+
+            angle_idxs, freq_idxs = np.nonzero(detecciones)
+
+            self.get_logger().info(f"tamaño angle_idxs: {angle_idxs.shape}")
+            self.get_logger().info(f"tamaño freq_idxs: {freq_idxs.shape}")
+            theta = np.deg2rad(global_angles[angle_idxs]) # angulos a radianes
+            r = self.freq_to_distance(self.freq_axis[freq_idxs])
+
+            x = r * np.sin(theta)
+            y = r * np.cos(theta)
+
+            msg_cart = RadarCartesian()
+            msg_cart.header = msg.header
+            msg_cart.x = x.astype(np.float32).tolist()
+            msg_cart.y = y.astype(np.float32).tolist()
+            self.cart_pub.publish(msg_cart)
+            self.get_logger().info(f"Publicado mapa cartesiano con ({len(x)}, {len(y)}) puntos")
 
             # guardar imagen de detecciones
             #save_name = f"mapa_acumulado_{time.strftime('%Y%m%d_%H%M%S')}.npy"
@@ -147,11 +171,12 @@ class RadarDataProcessing(Node):
                 else:
                     combine_map[k, j] = 0
             
-        return combine_map
+        return combine_map, global_angles
 
     def generate_detections(self, combine_map):
         # genera detecciones de forma binaria utilizando algoritmo cfar
-        detecciones = np.full((self.shape_data[0], self.shape_data[1]), 0) # np.nan
+        tamaño = combine_map.shape
+        detecciones = np.full((tamaño[0], tamaño[1]), 0) # np.nan
         
         for i, mag in enumerate(combine_map):
             mag_min = np.min(mag)

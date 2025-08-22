@@ -42,7 +42,8 @@ setup(
             'process_data_node = radar_package.process_data_node:main',
             'visulizacion_node = radar_package.visualizacion:main',
             'data_processing_node = radar_package.data_processing_node:main',
-            'mosaic_node = radar_package.mosaic:main'
+            'mosaic_node = radar_package.mosaic:main',
+            'mapa_cartesiano = radar_package.mapa_cartesiano:main'
         ],
     },
 )
