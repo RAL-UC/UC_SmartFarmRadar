@@ -1,5 +1,0 @@
-source;share/ptu_package/local_setup.bash
-source;share/ptu_package/local_setup.dsv
-source;share/ptu_package/local_setup.ps1
-source;share/ptu_package/local_setup.sh
-source;share/ptu_package/local_setup.zsh

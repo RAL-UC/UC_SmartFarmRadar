@@ -15,21 +15,21 @@ def generate_launch_description():
         #        'angle_step': ANGLE_STEP
         #    }]
         #),
-        Node(
-            package='ptu_package',
-            executable='ptu_node',
-            name='ptu_node',
-            output='screen',
-            parameters=[{
-                'serial_port': '/dev/ttyUSB0'
-            }]
-        ),
-        Node(
-            package='ptu_routine',
-            executable='ptu_routine_node',
-            name='ptu_routine_node',
-            output='screen'
-        ),
+        #Node(
+        #    package='ptu_package',
+        #    executable='ptu_node',
+        #    name='ptu_node',
+        #    output='screen',
+        #    parameters=[{
+        #        'serial_port': '/dev/ttyUSB0'
+        #    }]
+        #),
+        #Node(
+        #    package='ptu_routine',
+        #    executable='ptu_routine_node',
+        #    name='ptu_routine_node',
+        #    output='screen'
+        #),
         #Node(
         #    package='radar_package',
         #    executable='visulizacion_node',
@@ -43,13 +43,18 @@ def generate_launch_description():
         #    output='screen'
         #),
 
+        Node(
+            package='radar_package',
+            executable='data_processing_node',
+            name='data_processing_node',
+            output='screen'
+        ),
         #Node(
         #    package='radar_package',
-        #    executable='data_processing_node',
-        #    name='data_processing_node',
+        #    executable='mapa_cartesiano',
+        #    name='mapa_cartesiano',
         #    output='screen'
         #),
-
         #Node(
         #    package='radar_package',
         #    executable='mosaic_node',

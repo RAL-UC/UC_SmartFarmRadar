@@ -1,3 +1,0 @@
-[console_scripts]
-ptu_routine_node = ptu_routine.ptu_routine_node:main
-

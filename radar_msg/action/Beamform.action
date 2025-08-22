@@ -1,0 +1,11 @@
+# Goal
+int32 angle_deg        # ángulo en grados para el que se solicita el beamforming
+
+---
+# Result
+bool success
+string message
+
+---
+# Feedback
+string status
