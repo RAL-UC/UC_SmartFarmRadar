@@ -21,7 +21,6 @@ class StateMachine(Node):
         self._busy = False
         
         self.start_cycle()
-        #self.send_bunker_next_goal()
 
     ############## PTU ###############
     def start_cycle(self):
@@ -30,7 +29,7 @@ class StateMachine(Node):
         self._command_ptu_for_current()
 
     def _command_ptu_for_current(self):
-        if self._idx >= len(self._angles):
+        if self._idx >= len(self.ptu_angles):
             # Terminamos todos los ángulos ⇒ solicitar movimiento de bunker
             self.get_logger().info("Todos los ángulos completados → solicitando bunker next_pose")
             self.send_bunker_next_goal()
@@ -46,18 +45,19 @@ class StateMachine(Node):
         goal.tolerance_steps = 0
         goal.query_timeout_s = 8.0
 
-        self.get_logger().info(f"[{self._idx+1}/{len(self._angles)}] PTU → {angle}°")
+        self.get_logger().info(f"[{self._idx+1}/{len(self.ptu_angles)}] PTU → {angle}°")
         self._ptu_client.wait_for_server()
         fut = self._ptu_client.send_goal_async(goal, feedback_callback=self._ptu_feedback_cb)
         fut.add_done_callback(self._ptu_goal_response_cb)
 
     def _ptu_feedback_cb(self, fb):
         f = fb.feedback
-        self.get_logger().info(f"[PTU] idx={f.current_index} ang={f.current_angle}° | {f.status}")
+        self.get_logger().info(f"[PTU] ang={f.current_angle}° | {f.status}")
 
     def _ptu_goal_response_cb(self, future):
         exc = future.exception()
         if exc:
+            self._busy = False
             self.get_logger().error(f"Error al enviar goal PTU: {exc!r}")
             return
         gh = future.result()

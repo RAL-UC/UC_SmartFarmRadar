@@ -1,5 +1,5 @@
 # Goal
-int32[] angles_deg           # si viene vacío, usa por defecto self.ptu_angles
+int32 angles_deg           # si viene vacío, usa por defecto self.ptu_angles
 int32 tolerance_steps        # p.ej. 2
 float32 query_timeout_s      # p.ej. 8.0
 
@@ -10,6 +10,5 @@ string message
 
 ---
 # Feedback
-int32 current_index
 int32 current_angle
 string status
