@@ -56,7 +56,7 @@ class RadarNode(Node):
         #self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
 
         # servidor
-        self._beamform_server = ActionServer(self, Beamform, 'beamform', self.execute_beamform_cb)
+        self._beamform_server = ActionServer(self, Beamform, 'radar_beamform', self.execute_beamform_cb)
 
         # Inicializar hardware
         self.init_hardware() # restriccion: para inicializar se debe esperar correctamente a que el disposivo encienda
@@ -259,7 +259,7 @@ class RadarNode(Node):
         self.get_logger().info("Fin rutina de configuración")
 
         #self.ready_for_allow = True
-        self.get_logger().info("Publicar True en /allow_sweep para iniciar barrido de angulos")
+        #self.get_logger().info("Publicar True en /allow_sweep para iniciar barrido de angulos")
 
 
     async def execute_beamform_cb(self, goal_handle):
@@ -394,7 +394,7 @@ class RadarNode(Node):
         self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
 
         #self.ready_for_allow = True
-        self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
+        #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
 
 def main(args=None):
     rclpy.init(args=args)

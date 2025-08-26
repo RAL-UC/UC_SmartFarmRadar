@@ -1,10 +1,13 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String, Bool
+from std_msgs.msg import String
+from rclpy.action import ActionServer
+from threading import Event
+#import asyncio
+from rclpy.executors import MultiThreadedExecutor
 import time
 import re
-from rclpy.action import ActionClient
-from radar_msg.action import Beamform
+from radar_msg.action import PtuSweep
 
 # convencion
 # positivo izquierda
@@ -19,21 +22,19 @@ from radar_msg.action import Beamform
 #TN * -> -907 -> -46.645699888888885 hacia delante
 #TX * -> 604 -> 31.062847555555553 hacia atras
 
-
 # misma resolucion en ambas direcciones
 # 90, 75, 60, 45, 30, 15, 0
 # 1750, 1361, 1167, 875, 583, 292, 0
 
-def grados_a_pasos(grados):
-    # convierte angulos en grados a cantidad de pasos para el PTU-C46 considerando una resolucion de 185.1428 arcsec por paso (0.0514285°)
-    resolucion_grados = 185.1428 / 3600  # ≈ 0.0514285°
+def grados_a_pasos(grados: int) -> int:
+    """Convierte grados a pasos para PTU-C46 (185.1428 arcsec/paso ≈ 0.0514285°)."""
+    resolucion_grados = 185.1428 / 3600 # ≈ 0.0514285°
     pasos = round(grados / resolucion_grados)
     return pasos
 
-def pasos_a_grados(pasos):
-    # convierte una cantidad de pasos del PTU-C46 a grados considerando una resolución de 185.1428 arcsec por paso (0.0514285°)
-
-    resolucion_grados = 185.1428 / 3600  # ≈ 0.0514285°
+def pasos_a_grados(pasos: int) -> int:
+    """Convierte pasos a grados para PTU-C46 (185.1428 arcsec/paso ≈ 0.0514285°)."""
+    resolucion_grados = 185.1428 / 3600 # ≈ 0.0514285°
     grados = round(pasos * resolucion_grados)
     return grados
 
@@ -42,48 +43,143 @@ class PtuRoutineNode(Node):
         super().__init__('ptu_routine_node')
         # topicos
         self.cmd_pub = self.create_publisher(String, '/ptu_cmd', 10)
-        self.allow_sub = self.create_subscription(Bool, '/allow_routine_ptu', self.allow_cb, 10)
         self.rx_sub = self.create_subscription(String, '/ptu_response', self.rx_cb, 50)
-        #self.beamforming_pub = self.create_publisher(Bool, '/allow_beamforming', 10)
-        self.allow_bunker_pub = self.create_publisher(Bool, '/allow_bunker', 10)
 
-        self._beamform_client = ActionClient(self, Beamform, 'beamform')
+        #self.ptu_angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
+        #self.current_index = 0
 
-        self.ptu_angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
-        self.current_index = 0
+        self._active_goal = None
+        self._done_evt = Event()
+        self._success = False
+        self._final_message = "OK"
 
         self.target_steps = None # objetivo en pasos
         self.waiting_for_pp = False # esperando respuesta a 'pp'
         self.last_rx_position = None # última posición en pasos
         self.query_timer = None # timer de consulta periódica
-        self.query_period = 0.5 # s entre consultas 'pp'
-        self.query_timeout_s = 8.0 # timeout total para confirmar
+        self.query_period = 1 # s entre consultas 'pp'
+        self.query_timeout_s = 30.0 # timeout total para confirmar
         self.query_started = None # timestamp de inicio
-        self.tolerance_steps = 2 # tolerancia de coincidencia en pasos
+        self.tolerance_steps = 0 # tolerancia de coincidencia en pasos
 
+        # reenvío de setpoint mientras consulto
+        self.command_resend_period = 2
+        self._last_cmd_send_time = None
 
-        self.get_logger().info('Publica True en /allow_routine_ptu para avanzar un paso del recorrido.')
+        self._pan_re = re.compile(r'Current\s+Pan\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
 
-    def allow_cb(self, msg: Bool):
-        if not msg.data or self.waiting_for_pp:
-            return
-        
-        if self.current_index >= len(self.ptu_angles):
-            self.current_index = 0
-
-        # calculo del paso y el comando
-        angulo = self.ptu_angles[self.current_index]
-        self.target_steps = grados_a_pasos(angulo)
-        comando = f"pp{self.target_steps}"
-
-        # publicar
-        self._send_cmd(comando)
-        self.get_logger().info(
-            f"Paso {self.current_index+1}/{len(self.ptu_angles)}: "
-            f"Enviado '{comando.strip()}' ({angulo}° a {self.target_steps } pasos). Verificando llegada..."
+        self._server = ActionServer(
+            self,
+            PtuSweep,
+            'ptu_sweep',
+            execute_callback=self.execute_cb,
+            goal_callback=self.goal_cb,
+            cancel_callback=self.cancel_cb
         )
 
-        self._start_query_loop() # loop de verificacion
+    # ActionServer: aceptación/cancelación
+    def goal_cb(self, goal_request):
+        # Rechaza si ya hay una goal activa (este server es mono-objetivo)
+        if self._active_goal is not None:
+            self.get_logger().warn("PTU ocupado: rechazando nueva meta.")
+            return rclpy.action.GoalResponse.REJECT
+        return rclpy.action.GoalResponse.ACCEPT
+
+    def cancel_cb(self, goal_handle):
+        self.get_logger().info("Solicitud de cancelación recibida.")
+        # Aquí podrías agregar un flag para abortar la espera; por ahora se permite.
+        return rclpy.action.CancelResponse.ACCEPT
+    
+    async def execute_cb(self, goal_handle):
+        self._active_goal = goal_handle
+        self._done_evt.clear()
+        self._success = False
+        self._final_message = "OK"
+
+        target_deg = goal_handle.request.angles_deg
+        self.tolerance_steps = goal_handle.request.tolerance_steps or self.tolerance_steps
+        self.query_timeout_s = goal_handle.request.query_timeout_s or self.query_timeout_s
+
+        # manda movimiento
+        self._publish_feedback(target_deg, f"Moviendo a {target_deg}°")
+        self.target_steps = grados_a_pasos(target_deg)
+        self._send_cmd(f"pp{self.target_steps}")
+        self._last_cmd_send_time = time.monotonic()
+
+        # Inicia verificación
+        self.waiting_for_pp = True
+        self.last_rx_position = None
+        self.query_started = time.monotonic()
+        if self.query_timer is None:
+            self.query_timer = self.create_timer(self.query_period, self._query_tick)
+
+        # Primera consulta
+        self._send_cmd('pp')
+
+        # Espera a que termine (éxito o timeout/abort)
+        self._done_evt.wait()
+
+        # resultado
+        result = PtuSweep.Result()
+        result.success = self._success
+        result.message = self._final_message
+
+        if self._success:
+            goal_handle.succeed()
+        else:
+            goal_handle.abort()
+
+        self._active_goal = None
+        return result
+    
+    def _query_tick(self):
+        if not self.waiting_for_pp:
+            return
+        #self.get_logger().info(f"pasooo por evento 1 {self._matches_target(self.last_rx_position)}")
+        # ¿llegó?
+        if self.last_rx_position is not None and self._matches_target(self.last_rx_position):
+            ang = pasos_a_grados(self.last_rx_position)
+            self._publish_feedback(ang, f"Llegó a {ang}°")
+            self._stop_query_loop()
+            self._finish(True, "OK")
+            return
+
+        # timeout
+        elapsed = time.monotonic() - self.query_started
+        if elapsed > self.query_timeout_s:
+            aprox = pasos_a_grados(self.last_rx_position) if self.last_rx_position is not None else 0
+            self._publish_feedback(aprox, f"Timeout verificando llegada a {self.target_steps} pasos")
+            self._stop_query_loop()
+            self._finish(False, "Timeout")
+            return
+
+        # re-consulta y reinyecta setpoint
+        self._send_cmd('pp')
+        now = time.monotonic()
+        if (self.target_steps is not None
+                and self._last_cmd_send_time is not None
+                and (now - self._last_cmd_send_time) >= self.command_resend_period):
+            self._send_cmd(f'pp{self.target_steps}')
+            self._last_cmd_send_time = now
+
+    def _stop_query_loop(self):
+        self.waiting_for_pp = False
+        if self.query_timer is not None:
+            self.query_timer.cancel()
+            self.query_timer = None
+        self._last_cmd_send_time = None
+
+    def _matches_target(self, pos_steps: int) -> bool:
+        return (self.target_steps is not None and
+                abs(pos_steps - self.target_steps) <= self.tolerance_steps)
+    
+
+    def _publish_feedback(self, angle_deg: int, status: str):
+        if self._active_goal:
+            fb = PtuSweep.Feedback()
+            fb.current_angle = angle_deg
+            fb.status = status
+            self._active_goal.publish_feedback(fb)
     
     # publicar comando
     def _send_cmd(self, text: str):
@@ -91,104 +187,36 @@ class PtuRoutineNode(Node):
         msg.data = text
         self.cmd_pub.publish(msg)
 
-    # loop de consulta 'pp' hasta coincidir o timeout
-    def _start_query_loop(self):
-        self.waiting_for_pp = True
-        self.last_rx_position = None
-        self.query_started = time.monotonic()
-
-        # Enviar primera consulta
-        self._send_cmd('pp')
-
-        # timer periódico
-        if self.query_timer is None:
-            self.query_timer = self.create_timer(self.query_period, self._query_tick)
-
-    # cada tick re-consulta y evalúa timeout
-    def _query_tick(self):
-        if not self.waiting_for_pp:
-            return
-
-        # si ya tenemos posición y coincide -> éxito
-        if self.last_rx_position is not None and self._matches_target(self.last_rx_position):
-            self._on_reached_target(self.last_rx_position)
-            return
-
-        # revisar si se supera el timeout
-        elapsed = time.monotonic() - self.query_started
-        if elapsed > self.query_timeout_s:
-            self._on_query_timeout()
-            return
-
-        # Reenviar 'pp' para consultar
-        self._send_cmd('pp')
-
-    def _matches_target(self, pos_steps: int) -> bool:
-        if self.target_steps is None:
-            return False
-        return abs(pos_steps - self.target_steps) <= self.tolerance_steps
-    
-    def _on_reached_target(self, pos_steps: int):
-        # parar loop
-        self.waiting_for_pp = False
-        if self.query_timer is not None:
-            self.query_timer.cancel()
-            self.query_timer = None
-
-        ang = pasos_a_grados(pos_steps)
-        self.get_logger().info(f"Llegó a {pos_steps} pasos ({ang:.2f}°).")
-
-        # avanzar índice y reiniciar si esta al final
-        if self.current_index < len(self.ptu_angles) - 1:
-            msg = Bool()
-            msg.data = True
-            self.beamforming_pub.publish(msg)
-            self.current_index += 1
-
-        else:
-            self.current_index = 0
-            msg = Bool()
-            msg.data = True
-            self.allow_bunker_pub.publish(msg)
-            self.get_logger().info("Recorrido completado. Siguiente True reinicia en -90°.")
-
-    def _on_query_timeout(self):
-        self.waiting_for_pp = False
-        if self.query_timer is not None:
-            self.query_timer.cancel()
-            self.query_timer = None
-
-        self.get_logger().warn(
-            f"Timeout verificando llegada a {self.target_steps} pasos. "
-            f"Última lectura: {self.last_rx_position}."
-        )
-        # No avanzamos de índice: requerirá otro True para reintentar o pasar al siguiente
+    def _finish(self, ok: bool, msg: str):
+        self._success = ok
+        self._final_message = msg
+        self._done_evt.set()
 
     def rx_cb(self, msg: String):
-        line = msg.data.strip()
         # busca entero con signo en la línea
-        m = re.search(r'Current\s+Pan\s+position\s+is\s+(-?\d+)', line, re.IGNORECASE)
-        self.get_logger().info(f"mensaje: {m}")
+        m = self._pan_re.search(msg.data.strip())
+        #self.get_logger().info(f"mensaje: {m}")
         if m:
             pos = int(m.group(1))
             self.last_rx_position = pos
-            if self.waiting_for_pp and self._matches_target(pos):
-                # confirmación inmediata sin esperar otro tick
-                self._on_reached_target(pos)
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = PtuRoutineNode()
     try:
-        rclpy.spin(node)
+        executor = MultiThreadedExecutor(num_threads=2) # <- al menos 2 hilos
+        executor.add_node(node)
+        executor.spin()
+        #rclpy.spin(node)
     except KeyboardInterrupt:
         print("Nodo interrumpido por el usuario.")
     except Exception as e:
         print(f"Excepción no controlada: {e}")
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
