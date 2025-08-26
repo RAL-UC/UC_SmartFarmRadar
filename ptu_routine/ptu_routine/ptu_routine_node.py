@@ -3,6 +3,8 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from rclpy.action import ActionServer
 from threading import Event
+#import asyncio
+from rclpy.executors import MultiThreadedExecutor
 import time
 import re
 from radar_msg.action import PtuSweep
@@ -133,7 +135,7 @@ class PtuRoutineNode(Node):
     def _query_tick(self):
         if not self.waiting_for_pp:
             return
-
+        #self.get_logger().info(f"pasooo por evento 1 {self._matches_target(self.last_rx_position)}")
         # ¿llegó?
         if self.last_rx_position is not None and self._matches_target(self.last_rx_position):
             ang = pasos_a_grados(self.last_rx_position)
@@ -203,7 +205,10 @@ def main(args=None):
     rclpy.init(args=args)
     node = PtuRoutineNode()
     try:
-        rclpy.spin(node)
+        executor = MultiThreadedExecutor(num_threads=2) # <- al menos 2 hilos
+        executor.add_node(node)
+        executor.spin()
+        #rclpy.spin(node)
     except KeyboardInterrupt:
         print("Nodo interrumpido por el usuario.")
     except Exception as e:

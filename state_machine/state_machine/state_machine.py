@@ -25,7 +25,7 @@ class StateMachine(Node):
     ############## PTU ###############
     def start_cycle(self):
         self._idx = 0
-        self.get_logger().info(f"Inicio de ciclo PTU→Radar. Ángulos: {self.ptu_angles}")
+        self.get_logger().info(f"Inicio de ciclo PTU -> Radar. Ángulos: {self.ptu_angles}")
         self._command_ptu_for_current()
 
     def _command_ptu_for_current(self):
@@ -81,7 +81,7 @@ class StateMachine(Node):
             self.get_logger().warn(f"PTU movimiento falló: {res.message}")
             return
         
-        # Al terminar el PTU en ese ángulo → BEAMFORM de ese mismo ángulo
+        # Al terminar el PTU en ese ángulo -> BEAMFORM de ese mismo ángulo
         angle = self._current_angle
         self.get_logger().info(f"PTU OK en {angle}° -> Radar Beamform")
         self.start_beamforming(angle)
