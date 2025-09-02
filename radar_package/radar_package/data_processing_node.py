@@ -192,7 +192,7 @@ class RadarDataProcessing(Node):
                 mag = np.zeros_like(mag)
             num_guard_cells = 3
             num_ref_cells = 15
-            bias = 0.1
+            bias = 0.2
             total_ext = num_guard_cells + num_ref_cells
             mag_ext = self.extend_with_means(mag, total_ext)
             thresh, targets = cfar(mag_ext, num_guard_cells=num_guard_cells, num_ref_cells=num_ref_cells, bias=bias, cfar_method='average')

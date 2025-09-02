@@ -88,7 +88,7 @@ class RadarVisualizer(Node):
         self.sld_ref = Slider(ax_ref, 'Ref', 1, 50, valinit=15, valstep=1, orientation='vertical')
 
         ax_bias = plt.axes([0.08, 0.30, 0.015, 0.60])
-        self.sld_bias = Slider(ax_bias, 'Bias', 0.0, 1.0, valinit=0.1, valstep=0.01, orientation='vertical')
+        self.sld_bias = Slider(ax_bias, 'Bias', 0.0, 1.0, valinit=0.2, valstep=0.01, orientation='vertical')
 
         # Slider para fa_rate (solo para método false_alarm)
         ax_fa = plt.axes([0.11, 0.30, 0.015, 0.60]) 
@@ -118,13 +118,13 @@ class RadarVisualizer(Node):
         """Dibuja FFT + CFAR solamente en los índices válidos"""
         mag = self.filtered_data[idx, :]
 
-        #mag_min = np.min(mag)
-        #mag_max = np.max(mag)
-        #
-        #if mag_max > mag_min:
-        #    mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
-        #else:
-        #    mag = np.zeros_like(mag)
+        mag_min = np.min(mag)
+        mag_max = np.max(mag)
+        
+        if mag_max > mag_min:
+            mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
+        else:
+            mag = np.zeros_like(mag)
 
         # valores de los controles de interfaz
         ng = int(self.sld_guard.val) # celdas de guarda
@@ -184,7 +184,8 @@ class RadarVisualizer(Node):
         arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
         n_steering_angle, n_bins = [msg.rows, msg.cols]
         mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
-        mat = mat - self.medicion_fondo # banda base
+        print(self.medicion_fondo.shape, mat.shape)
+        mat = mat - self.medicion_fondo # restar medicion de fondo
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)

@@ -30,12 +30,12 @@ def generate_launch_description():
         #    name='ptu_routine_node',
         #    output='screen'
         #),
-        Node(
-            package='radar_package',
-            executable='radar_visualizer',
-            name='radar_visualizer',
-            output='screen'
-        ),
+        #Node(
+        #    package='radar_package',
+        #    executable='radar_visualizer',
+        #    name='radar_visualizer',
+        #    output='screen'
+        #),
         #Node(
         #    package='radar_package',
         #    executable='data_processing_node',
@@ -67,5 +67,11 @@ def generate_launch_description():
         #    name='mosaic_node',
         #    output='screen'
         #),
+        Node(
+            package='radar_package',
+            executable='waterfall',
+            name='waterfall',
+            output='screen'
+        ),
     ])
 
