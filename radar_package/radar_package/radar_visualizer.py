@@ -77,7 +77,7 @@ class RadarVisualizer(Node):
         # Slider de frames (recorrido en steering angle)
         ax_slider = plt.axes([0.25, 0.05, 0.65, 0.03])
         init_angle = np.clip(0, self.angle_min, self.angle_max) if self.angle_min <= 0 <= self.angle_max else self.angle_min
-        self.slider = Slider(ax_slider, 'Steering angle', self.angle_min, self.angle_max, valinit=init_angle, valstep=self.angle_step)
+        self.sld_angle = Slider(ax_slider, 'Steering angle', self.angle_min, self.angle_max, valinit=init_angle, valstep=self.angle_step)
 
         # CONTROLES INTERACTIVOS
         # Slider para num_guard_cells
@@ -104,11 +104,11 @@ class RadarVisualizer(Node):
         #self._mpl_timer = None
         #self._pending_idx = 0
 
-        self.slider.on_changed(self.on_slider_change)
+        self.sld_angle.on_changed(self.on_slider_change)
         # disparo de actualización
         for ctl in (self.sld_guard, self.sld_ref, self.sld_bias, self.sld_fa):
-            ctl.on_changed(lambda v: self.update_display(int(self.slider.val)))
-        self.radio_method.on_clicked(lambda label: self.update_display(int(self.slider.val)))
+            ctl.on_changed(lambda v: self.update_display(int(self.sld_angle.val)))
+        self.radio_method.on_clicked(lambda label: self.update_display(int(self.sld_angle.val)))
 
         # mostrar figura
         plt.show(block=False)
@@ -172,8 +172,9 @@ class RadarVisualizer(Node):
         # X: distancia válida
         self.ax.set_xlim(x[0], x[-1])
         # Y: 0 a 1 (normalizado min-max)
-        self.ax.set_ylim(np.min(mag), np.max(mag)) # np.min(mag), np.max(mag)
-        #self.ax.set_ylim(0, 1)
+        #self.ax.set_ylim(np.min(mag), np.max(mag)) # np.min(mag), np.max(mag)
+        self.ax.set_ylim(0, 1)
+        #self.ax.set_ylim(-70, 0)
         self.secax.set_xlim(self.freq[0], self.freq[-1])
 
         self.fig.canvas.draw_idle()
@@ -184,8 +185,20 @@ class RadarVisualizer(Node):
         arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
         n_steering_angle, n_bins = [msg.rows, msg.cols]
         mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
-        print(self.medicion_fondo.shape, mat.shape)
-        mat = mat - self.medicion_fondo # restar medicion de fondo
+        self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
+        #if self.medicion_fondo is not None:
+        #    if self.medicion_fondo.shape == mat.shape:
+        #        mat = mat - self.medicion_fondo
+        #        #mat = self.medicion_fondo
+        #    elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
+        #        fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
+        #        mat = mat - fondo_1x
+        #        #mat = fondo_1x
+        #        self.get_logger().info(f"{mat.shape}")
+        #    else:
+        #        self.get_logger().warn(
+        #            f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
+        #        )
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
@@ -196,15 +209,21 @@ class RadarVisualizer(Node):
         # atenuar valores iniciales
         #row_means = np.mean(self.filtered_data, axis=1)
         #self.filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
+
+        rows = self.filtered_data.shape[0]
+        if rows == 1:
+            self.sld_angle.ax.set_visible(False) # sin control de ángulo
+        else:
+            self.sld_angle.ax.set_visible(True)
         
         self.freq = freq[self.valid_indices]
         # Actualizar slider sin mover thumb
-        #self.slider.valmax = n_steering_angle - 1
-        #self.slider.ax.set_xlim(self.slider.valmin, self.slider.valmax)
+        #self.sld_angle.valmax = n_steering_angle - 1
+        #self.sld_angle.ax.set_xlim(self.sld_angle.valmin, self.sld_angle.valmax)
 
         # Redibujar en la posición actual del slider
-        angle = self.slider.val
-        idx = int(max(self.slider.valmin, min(angle, self.slider.valmax)))
+        angle = self.sld_angle.val
+        idx = int(max(self.sld_angle.valmin, min(angle, self.sld_angle.valmax)))
         self.update_display(idx)
 
     def on_slider_change(self, val: float):
