@@ -31,7 +31,7 @@ class RadarVisualizer(Node):
         self.filtered_freq = None # eje x filtrado
 
         # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min', -ANGLE_MIN) # grados
+        self.declare_parameter('angle_min', ANGLE_MIN) # grados
         self.declare_parameter('angle_max', ANGLE_MAX) # grados
         self.declare_parameter('angle_step', ANGLE_STEP) # grados
 
@@ -47,7 +47,7 @@ class RadarVisualizer(Node):
 
         # Ejes y datos que se rellenan en el primer mensaje
         self.freq = None # eje de frecuencias
-        self.freq_offset_index = None # corrimiento en bins
+        self.filtered_data = None
         self.valid_indices = None # índices >= 0 m
 
         # Configuración de Matplotlib interactivo
@@ -69,7 +69,6 @@ class RadarVisualizer(Node):
 
         self.ax.set_xlabel("Range [m]")
         self.ax.set_ylabel("MinMax Normalized Magnitude") # normalizada min-max
-        #self.ax.legend(loc='upper right')
 
         # eje secundario de rango en la parte superior
         self.secax = self.ax.secondary_xaxis('top', functions=(self.distance_to_freq, self.freq_to_distance))
@@ -77,8 +76,8 @@ class RadarVisualizer(Node):
 
         # Slider de frames (recorrido en steering angle)
         ax_slider = plt.axes([0.25, 0.05, 0.65, 0.03])
-        self.slider = Slider(ax_slider, 'Steering angle', self.angle_min, self.angle_max, valinit=0, valstep=self.angle_step)
-        self.slider.on_changed(self.on_slider_change)
+        init_angle = np.clip(0, self.angle_min, self.angle_max) if self.angle_min <= 0 <= self.angle_max else self.angle_min
+        self.slider = Slider(ax_slider, 'Steering angle', self.angle_min, self.angle_max, valinit=init_angle, valstep=self.angle_step)
 
         # CONTROLES INTERACTIVOS
         # Slider para num_guard_cells
@@ -100,6 +99,12 @@ class RadarVisualizer(Node):
         ax_method = plt.axes([0.01, 0.02, 0.12, 0.15])
         self.radio_method = RadioButtons(ax_method, ['average', 'greatest', 'smallest', 'false_alarm'], active=0)
 
+        #self.legend = self.ax.legend(loc='upper right')
+
+        #self._mpl_timer = None
+        #self._pending_idx = 0
+
+        self.slider.on_changed(self.on_slider_change)
         # disparo de actualización
         for ctl in (self.sld_guard, self.sld_ref, self.sld_bias, self.sld_fa):
             ctl.on_changed(lambda v: self.update_display(int(self.slider.val)))
@@ -174,6 +179,7 @@ class RadarVisualizer(Node):
         self.fig.canvas.draw_idle()
 
     def listener_callback(self, msg: RadarData):
+        self.get_logger().info(f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"')
         # Reconstruir matriz original
         arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
         n_steering_angle, n_bins = [msg.rows, msg.cols]

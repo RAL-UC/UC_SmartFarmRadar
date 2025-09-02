@@ -37,7 +37,7 @@ class RadarNode(Node):
         self.reconnect_timer = None
 
         # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min', -ANGLE_MIN) # grados
+        self.declare_parameter('angle_min', ANGLE_MIN) # grados
         self.declare_parameter('angle_max', ANGLE_MAX) # grados
         self.declare_parameter('angle_step', ANGLE_STEP) # grados
 
