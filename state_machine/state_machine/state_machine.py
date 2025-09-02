@@ -171,7 +171,7 @@ class StateMachine(Node):
         res = future.result().result
         self.get_logger().info(f"Bunker listo ({res}) → reiniciando PTU sweep")
         # Loop: vuelve a iniciar el ciclo PTU
-        self.start_ptu_cycle()
+        self.start_cycle()
 
 
 def main(args=None):

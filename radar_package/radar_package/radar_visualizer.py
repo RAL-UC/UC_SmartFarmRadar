@@ -7,33 +7,39 @@ from radar_msg.msg import RadarData
 from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
 from radar_package.parametros import *
 from matplotlib.widgets import Slider, RadioButtons
+import os
+from ament_index_python.packages import get_package_share_directory # recursos
+#import threading
+#from rclpy.executors import MultiThreadedExecutor
+#import time
 
-# debo mejorar recurso de datos al infinito
-path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
+# recursos
+pkg_share = get_package_share_directory('radar_package')
+path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo.npy')
 
 class RadarVisualizer(Node):
     def __init__(self):
         super().__init__('radar_visualizer')
 
         # suscripción a datos de radar
-        self.subscription = self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
         # los datos son recibidos como una matriz fft de frecuencias en steering angle
+        self.subscription = self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
 
-        self.base_data = np.load(path_base_data) # carga de banda base en datos de radar
+        self.medicion_fondo = np.load(path_medicion_fondo) # carga medicion de fondo en datos de radar
 
         self.filtered_data = None # data filtrada y desplazada en offset
         self.filtered_freq = None # eje x filtrado
 
         # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min', -80) # grados
-        self.declare_parameter('angle_max', 80) # grados
-        self.declare_parameter('angle_step', 1) # grados
+        self.declare_parameter('angle_min', -ANGLE_MIN) # grados
+        self.declare_parameter('angle_max', ANGLE_MAX) # grados
+        self.declare_parameter('angle_step', ANGLE_STEP) # grados
 
         # Leer parámetros
         p = self.get_parameter
         self.angle_min = p('angle_min').get_parameter_value().integer_value
         self.angle_max = p('angle_max').get_parameter_value().integer_value
-        self.angle_step  = p('angle_step').get_parameter_value().integer_value
+        self.angle_step = p('angle_step').get_parameter_value().integer_value
 
         # Funciones de conversión freq <-> range (eje inferior y superior)
         self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2 * SLOPE)
@@ -77,7 +83,7 @@ class RadarVisualizer(Node):
         # CONTROLES INTERACTIVOS
         # Slider para num_guard_cells
         ax_guard = plt.axes([0.02, 0.30, 0.015, 0.60])
-        self.sld_guard = Slider(ax_guard, 'Guard', 1, 20, valinit=5, valstep=1, orientation='vertical')
+        self.sld_guard = Slider(ax_guard, 'Guard', 1, 20, valinit=3, valstep=1, orientation='vertical')
 
         ax_ref = plt.axes([0.05, 0.30, 0.015, 0.60])
         self.sld_ref = Slider(ax_ref, 'Ref', 1, 50, valinit=15, valstep=1, orientation='vertical')
@@ -107,13 +113,13 @@ class RadarVisualizer(Node):
         """Dibuja FFT + CFAR solamente en los índices válidos"""
         mag = self.filtered_data[idx, :]
 
-        mag_min = np.min(mag)
-        mag_max = np.max(mag)
-
-        if mag_max > mag_min:
-            mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
-        else:
-            mag = np.zeros_like(mag)
+        #mag_min = np.min(mag)
+        #mag_max = np.max(mag)
+        #
+        #if mag_max > mag_min:
+        #    mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
+        #else:
+        #    mag = np.zeros_like(mag)
 
         # valores de los controles de interfaz
         ng = int(self.sld_guard.val) # celdas de guarda
@@ -161,7 +167,8 @@ class RadarVisualizer(Node):
         # X: distancia válida
         self.ax.set_xlim(x[0], x[-1])
         # Y: 0 a 1 (normalizado min-max)
-        self.ax.set_ylim(0, 1) # np.min(mag), np.max(mag)
+        self.ax.set_ylim(np.min(mag), np.max(mag)) # np.min(mag), np.max(mag)
+        #self.ax.set_ylim(0, 1)
         self.secax.set_xlim(self.freq[0], self.freq[-1])
 
         self.fig.canvas.draw_idle()
@@ -171,7 +178,7 @@ class RadarVisualizer(Node):
         arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
         n_steering_angle, n_bins = [msg.rows, msg.cols]
         mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
-        #mat = mat - self.base_data # banda base
+        mat = mat - self.medicion_fondo # banda base
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
@@ -180,8 +187,8 @@ class RadarVisualizer(Node):
         self.valid_indices = np.where(distance >= 0)[0]
         self.filtered_data = mat[:, self.valid_indices]
         # atenuar valores iniciales
-        row_means = np.mean(self.filtered_data, axis=1)
-        self.filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
+        #row_means = np.mean(self.filtered_data, axis=1)
+        #self.filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
         
         self.freq = freq[self.valid_indices]
         # Actualizar slider sin mover thumb

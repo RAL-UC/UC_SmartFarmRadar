@@ -126,6 +126,9 @@ en bucle
 ```bash
 ros2 bag play --loop UC_SmartFarmRadar/datos/radar_rosbag/intento1.7/intento1.7_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/data_sync_radar/data_sync_radar_0.db3
+ros2 bag play --loop UC_SmartFarmRadar/datos/radar_rosgbag_pao/dataset_0_0.db3
+ros2 bag play --loop UC_SmartFarmRadar/datos/wall/wall_0.db3
+ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo/medicion_fondo.db3
 ```
 
 Para cargar el entorno de ros2 de forma automatica en tu computador y espacio de trabajo añade lo siguiente a tu archivo `~/.bashrc`

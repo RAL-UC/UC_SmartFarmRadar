@@ -11,7 +11,7 @@ from radar_msg.msg import RadarData
 from std_msgs.msg import Bool
 from std_msgs.msg import Header
 import os
-from ament_index_python.packages import get_package_share_directory # archivos de calibracion
+from ament_index_python.packages import get_package_share_directory # recursos
 from radar_package.parametros import *
 #import sys
 from rclpy.action import ActionServer
@@ -37,9 +37,9 @@ class RadarNode(Node):
         self.reconnect_timer = None
 
         # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min', -80) # grados
-        self.declare_parameter('angle_max', 80) # grados
-        self.declare_parameter('angle_step', 1) # grados
+        self.declare_parameter('angle_min', -ANGLE_MIN) # grados
+        self.declare_parameter('angle_max', ANGLE_MAX) # grados
+        self.declare_parameter('angle_step', ANGLE_STEP) # grados
 
         # Leer parámetros
         p = self.get_parameter
@@ -341,7 +341,7 @@ class RadarNode(Node):
             # introduce un error el cual es pequeño 
             phase_delta = (2*np.pi * SIGNAL_FREQ_PHASER_RECEPTION * ELEMENT_SPACING * np.sin(np.radians(theta))) / C
             self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
-            time.sleep(0.1)
+            time.sleep(0.05)
 
             self.my_phaser._gpios.gpio_burst = 0
             self.my_phaser._gpios.gpio_burst = 1

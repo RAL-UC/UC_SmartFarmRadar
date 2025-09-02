@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'state_machine = state_machine.state_machine:main',
+            'active_radar = state_machine.active_radar:main'
         ],
     },
 )
