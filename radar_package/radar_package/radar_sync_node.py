@@ -8,10 +8,10 @@ import numpy as np
 # mensajes de ros
 #from std_msgs.msg import Float32MultiArray
 from radar_msg.msg import RadarData
-from std_msgs.msg import Bool
+#from std_msgs.msg import Bool
 from std_msgs.msg import Header
 import os
-from ament_index_python.packages import get_package_share_directory # archivos de calibracion
+from ament_index_python.packages import get_package_share_directory # recursos
 from radar_package.parametros import *
 #import sys
 from rclpy.action import ActionServer
@@ -37,9 +37,9 @@ class RadarNode(Node):
         self.reconnect_timer = None
 
         # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min', -80) # grados
-        self.declare_parameter('angle_max', 80) # grados
-        self.declare_parameter('angle_step', 1) # grados
+        self.declare_parameter('angle_min', ANGLE_MIN) # grados
+        self.declare_parameter('angle_max', ANGLE_MAX) # grados
+        self.declare_parameter('angle_step', ANGLE_STEP) # grados
 
         # Leer parámetros
         p = self.get_parameter
@@ -48,10 +48,11 @@ class RadarNode(Node):
         self.angle_step  = p('angle_step').get_parameter_value().integer_value
 
         self.angles = np.arange(self.angle_min, self.angle_max+1, self.angle_step) # vector de angulos en recorrido
+        #self.get_logger().info(f"self.angles: {self.angles}")
 
         # --- Publisher ---
         # clase de mensaje, nombre del topico, tamaño de buffer
-        self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
+        #self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
         # -- Subscriber ---
         #self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
 
@@ -203,8 +204,8 @@ class RadarNode(Node):
         # aumentar FFT disminuye delta f permitiendo distinguir frecuencias mas cercanas
         # Define cuántos puntos usas para calcular el espectro de cada chirrido o ráfaga
         # análisis de frecuencia de un subconjunto del buffer
-        power = 8 # potencia
-        self.fft_size = int(2**power) # potencia de 2^8 = 256 
+        power = 12 # potencia
+        self.fft_size = int(2**power) # potencia de 2^8 = 256 - 4096
         self.num_samples_frame = int(tdd.frame_length_ms/1000*SAMPLE_RATE) # cuántas muestras hay en un frame TDD completo
         # aumento del tamaño de la FFT para que sea mayor que num_samples_frame
         while self.num_samples_frame > self.fft_size:     
@@ -266,8 +267,9 @@ class RadarNode(Node):
         """
         Ejecuta una adquisición beamforming y publica el RadarData resultante. Devuelve success/message.
         """
-        angle = int(goal_handle.request.angle_deg)
-        self.get_logger().info(f"[Radar] Goal recibida: beamforming en {angle}°")
+        pan  = int(goal_handle.request.pan_deg)
+        tilt = int(goal_handle.request.tilt_deg)
+        self.get_logger().info(f"[Radar] Goal: pan={pan}°, tilt={tilt}°")
 
         feedback = Beamform.Feedback()
         feedback.status = "Inicializando adquisición"
@@ -287,24 +289,28 @@ class RadarNode(Node):
             feedback.status = "Adquiriendo y procesando"
             goal_handle.publish_feedback(feedback)
 
-            # Ejecuta la misma lógica que tu barrido, pero con un solo ángulo
-            self.do_sweep()
+            # logica de beamforming
+            #msg = self.do_sweep()
+            # logica de captura en un solo angulo
+            msg = self.do_chirp()
 
-            feedback.status = "Publicación RadarData completada"
+            feedback.status = "OK, devolviendo resultado"
             goal_handle.publish_feedback(feedback)
 
-            goal_handle.succeed()
             result = Beamform.Result()
             result.success = True
-            result.message = f"Beamforming OK en {angle}°"
+            result.message = f"Beamforming OK (pan={pan}°, tilt={tilt}°)"
+            result.radar_data = msg
+            goal_handle.succeed()
             return result
 
         except Exception as e:
             self.get_logger().error(f"Error en beamforming: {e}")
-            goal_handle.abort()
             result = Beamform.Result()
             result.success = False # faltara reconexion ?
             result.message = f"Error: {e}"
+            # result.radar_data vacío
+            goal_handle.abort()
             return result
 
     #def trigger_callback(self, msg):
@@ -330,7 +336,6 @@ class RadarNode(Node):
 
     def do_sweep(self):
         radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
-
         for theta in self.angles:
             # 1) direccion del haz
             # Fórmula:
@@ -341,7 +346,7 @@ class RadarNode(Node):
             # introduce un error el cual es pequeño 
             phase_delta = (2*np.pi * SIGNAL_FREQ_PHASER_RECEPTION * ELEMENT_SPACING * np.sin(np.radians(theta))) / C
             self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
-            time.sleep(0.1)
+            #time.sleep(0.05)
 
             self.my_phaser._gpios.gpio_burst = 0
             self.my_phaser._gpios.gpio_burst = 1
@@ -390,11 +395,84 @@ class RadarNode(Node):
         msg.cols = mat.shape[1]
         msg.dtype = str(mat.dtype) # "float64"
         msg.data = mat.flatten().tolist() # aplanado
-        self.pub_matrix.publish(msg)
-        self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
+        #self.pub_matrix.publish(msg)
+        #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
 
         #self.ready_for_allow = True
         #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
+        return msg
+
+    def do_chirp(self):
+        radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
+        theta = 0
+        
+        # 1) direccion del haz
+        # Fórmula:
+        # Phase delta = 2*Pi*d*sin(theta)/lambda = 2*Pi*d*sin(theta)*f/c
+        # Se usan: f_signal_freq = 10.25 GHz, d = 0.014 m, c = 3e8 m/s
+        # se utiliza f_signal_freq = 10.25 GHz ya que el phaser escucha entre 10GHz y 10.5GHz
+        # se utiliza desplazamiento de fase en un rango pequeño en base a la frecuencia central
+        # introduce un error el cual es pequeño 
+        phase_delta = (2*np.pi * SIGNAL_FREQ_PHASER_RECEPTION * ELEMENT_SPACING * np.sin(np.radians(theta))) / C
+        self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
+        #time.sleep(0.05)
+
+        self.my_phaser._gpios.gpio_burst = 0
+        self.my_phaser._gpios.gpio_burst = 1
+        self.my_phaser._gpios.gpio_burst = 0
+        # 2) Recepción y FFT
+        data = self.my_sdr.rx()
+        sum_data = data[0] + data[1] # canal 1 y canal 2
+
+        rx_bursts = np.zeros((NUM_CHIRPS, GOOD_RAMP_SAMPLES), dtype=complex)
+        for burst in range(NUM_CHIRPS): # para cada chirrido individual
+            # indicie inicial y final dentro del arreglo sum_data
+            start_index = self.start_offset_samples + burst*self.num_samples_frame
+            stop_index = start_index + GOOD_RAMP_SAMPLES
+            rx_bursts[burst] = sum_data[start_index:stop_index]
+            burst_data = np.ones(self.fft_size, dtype=complex)*1e-10 # arreglo con tamaño fft_size complejo con valores pequeños
+            #win_funct = np.blackman(len(rx_bursts[burst])) # ventana blackman
+            win_funct = np.ones(len(rx_bursts[burst]))
+            #win_funct = np.ones(len(rx_bursts[burst])) # ventana rectangular
+            # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
+            burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = rx_bursts[burst]*win_funct
+
+        sp = np.fft.fftshift(np.abs(np.fft.fft(burst_data)))
+        s_mag = np.abs(sp) / np.sum(win_funct)
+        s_mag = np.maximum(s_mag, 10 ** (-15))
+        s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
+
+        radar_data_matriz.append(s_dbfs)
+
+        mat = np.vstack(radar_data_matriz) # shape (161,1024)
+        
+        # GUARDAR DATA .npy
+        #save_dir = '/home/dammr/Desktop/UC_SmartFarmRadar/capturas_radar' # Carpeta donde guardar
+        #os.makedirs(save_dir, exist_ok=True) # crea la carpeta si no existe
+        #existing_files = [f for f in os.listdir(save_dir) if f.endswith('.npy')]
+        #numbers = [int(f.replace('.npy', '')) for f in existing_files if f.replace('.npy', '').isdigit()]
+        #next_number = max(numbers) + 1 if numbers else 0
+        #save_path = os.path.join(save_dir, f"{next_number}.npy")
+        #np.save(save_path, mat)
+        #self.get_logger().info(f'Datos guardados en {save_path}')
+
+        # publicar ros
+        msg = RadarData()
+        msg.header = Header()
+        msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
+        msg.header.frame_id = 'radar_sensor'
+        msg.rows = mat.shape[0]
+        msg.cols = mat.shape[1]
+        msg.dtype = str(mat.dtype) # "float64"
+        msg.data = mat.flatten().tolist() # aplanado
+
+        self.get_logger().info(f"msg.dtype {mat.dtype}")
+        #self.pub_matrix.publish(msg)
+        #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
+
+        #self.ready_for_allow = True
+        #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
+        return msg
 
 def main(args=None):
     rclpy.init(args=args)

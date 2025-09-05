@@ -21,8 +21,8 @@ IDX_ATTENUATION = 8
 # podria reajustarse segun el calculo y aproximacion dada a los bins
 OFFSET = 10.76e3 # 6666 Hz por metro 10760/6666 = 1.614 metros de offset en medicion de distancia  
 
-RX_GAIN_CHAN0 = 30 # ganancia en la recepcion valor entre -3 y 70 CANAL 0
-RX_GAIN_CHAN1 = 30 # ganancia en la recepcion valor entre -3 y 70 CANAL 1
+RX_GAIN_CHAN0 = 50 # ganancia en la recepcion valor entre -3 y 70 CANAL 0
+RX_GAIN_CHAN1 = 50 # ganancia en la recepcion valor entre -3 y 70 CANAL 1
 
 TX_GAIN_CHAN0 = -88 # ganancia en la recepcion valor entre 0 y -88 CANAL 0 -> Tx1
 TX_GAIN_CHAN1 = 0 # ganancia en la recepcion valor entre 0 y -88 CANAL 1 -> Tx2
@@ -48,8 +48,17 @@ ANGLE0 = -90
 
 # radar
 FOV = 160
-ANGLE_MIN = -80 # grados
-ANGLE_MAX = 80 # grados
+ANGLE_MIN = -80 # grados -80
+ANGLE_MAX = 80 # grados 80
 ANGLE_STEP = 1 # grados
+
+# PTU
+ANGLE_MIN_PTU_PAN = -80 # grados -80
+ANGLE_MAX_PTU_PAN = 80 # grados 80
+ANGLE_STEP_PTU_PAN = 1 # grados
+
+ANGLE_MIN_PTU_TILT = -45 # grados -80
+ANGLE_MAX_PTU_TILT = 45 # grados 80
+ANGLE_STEP_PTU_TILT = 1 # grados
 
 GLOBAL_ANGLES = -2*(ANGLE0+ANGLE_MIN) + 1 # 80 apertura de steering angle + 90 de pantilt dan una apertura de 170 hacia cada lado = 340 + 1

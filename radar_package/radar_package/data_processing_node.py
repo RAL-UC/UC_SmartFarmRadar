@@ -6,9 +6,12 @@ from radar_msg.msg import RadarData
 from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
 from radar_package.parametros import *
 from radar_msg.msg import RadarCartesian
+import os
+from ament_index_python.packages import get_package_share_directory # recursos
 
-# debo mejorar recurso de datos al infinito
-path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
+# recursos
+pkg_share = get_package_share_directory('radar_package')
+path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo.npy')
 
 # nodo de procesamiento de datos
 class RadarDataProcessing(Node):
@@ -17,7 +20,7 @@ class RadarDataProcessing(Node):
         self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
         self.cart_pub = self.create_publisher(RadarCartesian, 'radar_cartesian', 10)
 
-        self.base_data = np.load(path_base_data) # banda base
+        self.medicion_fondo = np.load(path_medicion_fondo) # medicion de fondo
         self.ptu_angles = ANGLE0 + STEP_DEG_PTU * np.arange(N_MAPS) # lista de angulos del pantilt
 
         # parámetros configurables
@@ -42,13 +45,13 @@ class RadarDataProcessing(Node):
 
     def listener_callback(self, msg: RadarData):
         # mostrar Header
-        self.get_logger().info(f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"')
+        #self.get_logger().info(f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"')
 
         # reconstruir matriz original
         arr = np.array(msg.data, dtype=msg.dtype)
         n_steering_angle, n_bins = [msg.rows, msg.cols]
         mat = arr.reshape((n_steering_angle, n_bins))
-        #mat = mat - self.base_data # banda base
+        mat = mat - self.medicion_fondo # restar medicion de fondo
 
         # eje de frecuencia completo
         freq = np.linspace(-SAMPLE_RATE / 2, SAMPLE_RATE / 2, n_bins, endpoint=False)
@@ -61,8 +64,8 @@ class RadarDataProcessing(Node):
         self.freq_axis = freq[valid_indices] # eje frecuencias valido
 
         # atenuar valores iniciales
-        row_means = np.mean(filtered_data, axis=1)
-        filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
+        #row_means = np.mean(filtered_data, axis=1)
+        #filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
 
         # tamaño de datos
         self.shape_data = [n_steering_angle, len(valid_indices)]
@@ -70,6 +73,7 @@ class RadarDataProcessing(Node):
         # acumulacion de segmentos
         self.segmentos.append(filtered_data)
         self.joint_counter += 1
+        self.get_logger().info(f'segmento {self.joint_counter}/{N_MAPS}')
 
         # completados los N_MAPS
         if self.joint_counter == N_MAPS:
@@ -186,11 +190,12 @@ class RadarDataProcessing(Node):
                 mag = (mag - mag_min) / (mag_max - mag_min)
             else:
                 mag = np.zeros_like(mag)
-            num_guard_cells = 5
+            num_guard_cells = 3
             num_ref_cells = 15
+            bias = 0.2
             total_ext = num_guard_cells + num_ref_cells
             mag_ext = self.extend_with_means(mag, total_ext)
-            thresh, targets = cfar(mag_ext, num_guard_cells=5, num_ref_cells=15, bias=0.1, cfar_method='average')
+            thresh, targets = cfar(mag_ext, num_guard_cells=num_guard_cells, num_ref_cells=num_ref_cells, bias=bias, cfar_method='average')
             thresh = self.unpad(thresh, total_ext)
             targets = np.ma.array(self.unpad(targets, total_ext), mask=self.unpad(targets.mask, total_ext))
             det_indices = np.where(targets.mask)[0] # posiciones no enmascaradas

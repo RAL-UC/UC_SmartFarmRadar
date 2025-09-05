@@ -8,16 +8,21 @@ Es posible editar archivos de configuración predeterminada. Dentro de las confi
 nano ~/.tmux.conf
 set -g mouse on
 tmux source-file ~/.tmux.conf
+```
+crear nueva sesion:
+```bash
 tmux new -s magister
 ```
+
+desconectar sin cerrar: Ctrl + b, luego suelta y presiona d
 Esto "detaches" la sesión, dejándola en segundo plano.
 
 Volver a una sesion existente
 ```bash
-Ctrl + b, luego suelta y presiona d
-tmux attach -t magister
 tmux ls
+tmux attach -t magister
 ```
+
 
 atajo de teclado: shift + selección, selecciona como el default y luego Ctrl + Shift + C para copiar
 
@@ -78,3 +83,8 @@ consulta memoria
 df -H
 
 client_loop: send disconnect: Broken pipe
+
+
+ros2 launch radar_package launch.py
+
+ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"

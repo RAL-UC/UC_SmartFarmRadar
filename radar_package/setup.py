@@ -16,7 +16,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'resource'), glob('resource/*.pkl')),
+        (os.path.join('share', package_name, 'resource'), glob('resource/*.pkl') + glob('resource/*.npy')),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
     ],
     install_requires=[
@@ -38,12 +38,16 @@ setup(
     entry_points={
         'console_scripts': [
             'radar_sync_node = radar_package.radar_sync_node:main',
+            'data_processing_node = radar_package.data_processing_node:main',
+            'medicion_fondo = radar_package.medicion_fondo:main',
+            'radar_visualizer = radar_package.radar_visualizer:main',
+            'mapa_cartesiano = radar_package.mapa_cartesiano:main',
             'radar_node = radar_package.radar_node:main',
             'process_data_node = radar_package.process_data_node:main',
-            'visulizacion_node = radar_package.visualizacion:main',
-            'data_processing_node = radar_package.data_processing_node:main',
             'mosaic_node = radar_package.mosaic:main',
-            'mapa_cartesiano = radar_package.mapa_cartesiano:main'
+            'waterfall = radar_package.waterfall:main',
+            'simulador_radar = radar_package.simulador_radar:main',
+            'simulador_ptu = radar_package.simulador_ptu:main',
         ],
     },
 )
