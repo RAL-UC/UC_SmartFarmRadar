@@ -46,6 +46,8 @@ setup(
             'process_data_node = radar_package.process_data_node:main',
             'mosaic_node = radar_package.mosaic:main',
             'waterfall = radar_package.waterfall:main',
+            'simulador_radar = radar_package.simulador_radar:main',
+            'simulador_ptu = radar_package.simulador_ptu:main',
         ],
     },
 )

@@ -1,13 +1,16 @@
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import String
-from rclpy.action import ActionServer
-from threading import Event
-#import asyncio
-from rclpy.executors import MultiThreadedExecutor
+#!/usr/bin/env python3
 import time
 import re
+from threading import Event
+
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionServer, GoalResponse, CancelResponse
+from rclpy.executors import MultiThreadedExecutor
+
+from std_msgs.msg import String
 from radar_msg.action import PtuSweep
+#import asyncio
 
 # convencion
 # positivo izquierda
@@ -53,20 +56,26 @@ class PtuRoutineNode(Node):
         self._success = False
         self._final_message = "OK"
 
-        self.target_steps = None # objetivo en pasos
-        self.waiting_for_pp = False # esperando respuesta a 'pp'
-        self.last_rx_position = None # última posición en pasos
-        self.query_timer = None # timer de consulta periódica
-        self.query_period = 1 # s entre consultas 'pp'
-        self.query_timeout_s = 30.0 # timeout total para confirmar
-        self.query_started = None # timestamp de inicio
-        self.tolerance_steps = 0 # tolerancia de coincidencia en pasos
+        # objetivos en pasos
+        self.target_pan_steps  = None
+        self.target_tilt_steps = None
 
-        # reenvío de setpoint mientras consulto
-        self.command_resend_period = 2
+        # ultima posicion en pasos
+        self.last_pan_steps  = None
+        self.last_tilt_steps = None
+
+        self.waiting = False # esperando respuesta a 'pp' o 'tp
+        self.query_timer = None # timer de consulta periódica
+        self.query_started = None # timestamp de inicio
         self._last_cmd_send_time = None
 
+        self.query_period = 1 # s entre consultas 'pp'
+        self.command_resend_period = 2 # reenvío de setpoint mientras consulto
+        self.query_timeout_s = 30.0 # timeout total para confirmar que se llego a la posicion objetivo
+        self.tolerance_steps = 0 # tolerancia de coincidencia en pasos
+
         self._pan_re = re.compile(r'Current\s+Pan\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
+        self._tilt_re = re.compile(r'Current\s+Tilt\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
 
         self._server = ActionServer(
             self,
@@ -82,13 +91,13 @@ class PtuRoutineNode(Node):
         # Rechaza si ya hay una goal activa (este server es mono-objetivo)
         if self._active_goal is not None:
             self.get_logger().warn("PTU ocupado: rechazando nueva meta.")
-            return rclpy.action.GoalResponse.REJECT
-        return rclpy.action.GoalResponse.ACCEPT
+            return GoalResponse.REJECT
+        return GoalResponse.ACCEPT
 
     def cancel_cb(self, goal_handle):
         self.get_logger().info("Solicitud de cancelación recibida.")
         # Aquí podrías agregar un flag para abortar la espera; por ahora se permite.
-        return rclpy.action.CancelResponse.ACCEPT
+        return CancelResponse.ACCEPT
     
     async def execute_cb(self, goal_handle):
         self._active_goal = goal_handle
@@ -96,25 +105,31 @@ class PtuRoutineNode(Node):
         self._success = False
         self._final_message = "OK"
 
-        target_deg = goal_handle.request.angles_deg
-        self.tolerance_steps = goal_handle.request.tolerance_steps or self.tolerance_steps
-        self.query_timeout_s = goal_handle.request.query_timeout_s or self.query_timeout_s
+        pan_deg = goal_handle.request.pan_deg
+        tilt_deg = goal_handle.request.tilt_deg
+
+        self.target_pan_steps  = grados_a_pasos(pan_deg)
+        self.target_tilt_steps = grados_a_pasos(tilt_deg)
+        #self.tolerance_steps = goal_handle.request.tolerance_steps or self.tolerance_steps
+        #self.query_timeout_s = goal_handle.request.query_timeout_s or self.query_timeout_s
 
         # manda movimiento
-        self._publish_feedback(target_deg, f"Moviendo a {target_deg}°")
-        self.target_steps = grados_a_pasos(target_deg)
-        self._send_cmd(f"pp{self.target_steps}")
+        self._publish_feedback(pan_deg, tilt_deg, f"Moviendo a pan={pan_deg}°, tilt={tilt_deg}°")
+        self._send_cmd(f"pp{self.target_pan_steps}")
+        self._send_cmd(f"tp{self.target_tilt_steps}")
         self._last_cmd_send_time = time.monotonic()
 
         # Inicia verificación
-        self.waiting_for_pp = True
-        self.last_rx_position = None
+        self.waiting = True
+        self.last_pan_steps  = None
+        self.last_tilt_steps = None
         self.query_started = time.monotonic()
         if self.query_timer is None:
             self.query_timer = self.create_timer(self.query_period, self._query_tick)
 
         # Primera consulta
         self._send_cmd('pp')
+        self._send_cmd('tp')
 
         # Espera a que termine (éxito o timeout/abort)
         self._done_evt.wait()
@@ -133,13 +148,19 @@ class PtuRoutineNode(Node):
         return result
     
     def _query_tick(self):
-        if not self.waiting_for_pp:
+        if not self.waiting:
             return
-        #self.get_logger().info(f"pasooo por evento 1 {self._matches_target(self.last_rx_position)}")
+        
         # ¿llegó?
-        if self.last_rx_position is not None and self._matches_target(self.last_rx_position):
-            ang = pasos_a_grados(self.last_rx_position)
-            self._publish_feedback(ang, f"Llegó a {ang}°")
+        pan_ok  = (self.last_pan_steps  is not None and
+                   abs(self.last_pan_steps  - self.target_pan_steps)  <= self.tolerance_steps)
+        tilt_ok = (self.last_tilt_steps is not None and
+                   abs(self.last_tilt_steps - self.target_tilt_steps) <= self.tolerance_steps)
+        
+        if pan_ok and tilt_ok:
+            pan_deg  = pasos_a_grados(self.last_pan_steps)
+            tilt_deg = pasos_a_grados(self.last_tilt_steps)
+            self._publish_feedback(pan_deg, tilt_deg, f"Llegó a pan={pan_deg}°, tilt={tilt_deg}°")
             self._stop_query_loop()
             self._finish(True, "OK")
             return
@@ -147,37 +168,35 @@ class PtuRoutineNode(Node):
         # timeout
         elapsed = time.monotonic() - self.query_started
         if elapsed > self.query_timeout_s:
-            aprox = pasos_a_grados(self.last_rx_position) if self.last_rx_position is not None else 0
-            self._publish_feedback(aprox, f"Timeout verificando llegada a {self.target_steps} pasos")
+            aprox_pan = pasos_a_grados(self.last_pan_steps) if self.last_pan_steps is not None else 0
+            aprox_tilt = pasos_a_grados(self.last_tilt_steps) if self.last_tilt_steps is not None else 0
+            self._publish_feedback(aprox_pan, aprox_tilt,
+                                   f"Timeout verificando llegada a pan={self.target_pan_steps}, tilt={self.target_tilt_steps}")
             self._stop_query_loop()
             self._finish(False, "Timeout")
             return
 
         # re-consulta y reinyecta setpoint
         self._send_cmd('pp')
+        self._send_cmd('tp')
         now = time.monotonic()
-        if (self.target_steps is not None
-                and self._last_cmd_send_time is not None
-                and (now - self._last_cmd_send_time) >= self.command_resend_period):
-            self._send_cmd(f'pp{self.target_steps}')
+        if self._last_cmd_send_time is not None and (now - self._last_cmd_send_time) >= self.command_resend_period:
+            self._send_cmd(f'pp{self.target_pan_steps}')
+            self._send_cmd(f'tp{self.target_tilt_steps}')
             self._last_cmd_send_time = now
 
     def _stop_query_loop(self):
-        self.waiting_for_pp = False
+        self.waiting = False
         if self.query_timer is not None:
             self.query_timer.cancel()
             self.query_timer = None
         self._last_cmd_send_time = None
-
-    def _matches_target(self, pos_steps: int) -> bool:
-        return (self.target_steps is not None and
-                abs(pos_steps - self.target_steps) <= self.tolerance_steps)
     
-
-    def _publish_feedback(self, angle_deg: int, status: str):
+    def _publish_feedback(self, pan_deg: int, tilt_deg: int, status: str):
         if self._active_goal:
             fb = PtuSweep.Feedback()
-            fb.current_angle = angle_deg
+            fb.current_pan_deg  = int(pan_deg)
+            fb.current_tilt_deg = int(tilt_deg)
             fb.status = status
             self._active_goal.publish_feedback(fb)
     
@@ -193,13 +212,14 @@ class PtuRoutineNode(Node):
         self._done_evt.set()
 
     def rx_cb(self, msg: String):
+        line = msg.data.strip()
         # busca entero con signo en la línea
-        m = self._pan_re.search(msg.data.strip())
-        #self.get_logger().info(f"mensaje: {m}")
-        if m:
-            pos = int(m.group(1))
-            self.last_rx_position = pos
-
+        m_pan  = self._pan_re.search(line)
+        m_tilt = self._tilt_re.search(line)
+        if m_pan:
+            self.last_pan_steps = int(m_pan.group(1))
+        if m_tilt:
+            self.last_tilt_steps = int(m_tilt.group(1))
 
 def main(args=None):
     rclpy.init(args=args)
@@ -208,7 +228,6 @@ def main(args=None):
         executor = MultiThreadedExecutor(num_threads=2) # <- al menos 2 hilos
         executor.add_node(node)
         executor.spin()
-        #rclpy.spin(node)
     except KeyboardInterrupt:
         print("Nodo interrumpido por el usuario.")
     except Exception as e:

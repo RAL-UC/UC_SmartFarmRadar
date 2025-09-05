@@ -22,7 +22,7 @@ class BackgroundCaptureNode(Node):
       - topic (str): nombre del tópico (default: 'radar_data')
       - captures (int): número de capturas de fondo a promediar (default: 10)
       - output_path (str): ruta del archivo .npy a guardar (default: DEFAULT_OUTPUT)
-      - dtype (str): dtype NumPy para guardar (default: 'float32')
+      - dtype (str): dtype NumPy para guardar (default: 'float64') o 32
     """
     def __init__(self):
         super().__init__('background_capture_node')
@@ -31,7 +31,7 @@ class BackgroundCaptureNode(Node):
         self.topic = "/radar_data"
         self.declare_parameter('captures', 10)
         self.declare_parameter('output_path', DEFAULT_OUTPUT)
-        self.np_data_type = 'float32'
+        self.np_data_type = 'float64'
 
         # Lectura de parámetros
         p = self.get_parameter

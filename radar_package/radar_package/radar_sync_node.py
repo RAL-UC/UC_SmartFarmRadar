@@ -8,7 +8,7 @@ import numpy as np
 # mensajes de ros
 #from std_msgs.msg import Float32MultiArray
 from radar_msg.msg import RadarData
-from std_msgs.msg import Bool
+#from std_msgs.msg import Bool
 from std_msgs.msg import Header
 import os
 from ament_index_python.packages import get_package_share_directory # recursos
@@ -52,7 +52,7 @@ class RadarNode(Node):
 
         # --- Publisher ---
         # clase de mensaje, nombre del topico, tamaño de buffer
-        self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
+        #self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
         # -- Subscriber ---
         #self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
 
@@ -267,8 +267,9 @@ class RadarNode(Node):
         """
         Ejecuta una adquisición beamforming y publica el RadarData resultante. Devuelve success/message.
         """
-        angle = int(goal_handle.request.angle_deg)
-        self.get_logger().info(f"[Radar] Goal recibida: beamforming en {angle}°")
+        pan  = int(goal_handle.request.pan_deg)
+        tilt = int(goal_handle.request.tilt_deg)
+        self.get_logger().info(f"[Radar] Goal: pan={pan}°, tilt={tilt}°")
 
         feedback = Beamform.Feedback()
         feedback.status = "Inicializando adquisición"
@@ -289,25 +290,27 @@ class RadarNode(Node):
             goal_handle.publish_feedback(feedback)
 
             # logica de beamforming
-            #self.do_sweep()
+            #msg = self.do_sweep()
             # logica de captura en un solo angulo
-            self.do_chirp()
+            msg = self.do_chirp()
 
-            feedback.status = "Publicación RadarData completada"
+            feedback.status = "OK, devolviendo resultado"
             goal_handle.publish_feedback(feedback)
 
-            goal_handle.succeed()
             result = Beamform.Result()
             result.success = True
-            result.message = f"Beamforming OK en {angle}°"
+            result.message = f"Beamforming OK (pan={pan}°, tilt={tilt}°)"
+            result.radar_data = msg
+            goal_handle.succeed()
             return result
 
         except Exception as e:
             self.get_logger().error(f"Error en beamforming: {e}")
-            goal_handle.abort()
             result = Beamform.Result()
             result.success = False # faltara reconexion ?
             result.message = f"Error: {e}"
+            # result.radar_data vacío
+            goal_handle.abort()
             return result
 
     #def trigger_callback(self, msg):
@@ -392,11 +395,12 @@ class RadarNode(Node):
         msg.cols = mat.shape[1]
         msg.dtype = str(mat.dtype) # "float64"
         msg.data = mat.flatten().tolist() # aplanado
-        self.pub_matrix.publish(msg)
-        self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
+        #self.pub_matrix.publish(msg)
+        #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
 
         #self.ready_for_allow = True
         #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
+        return msg
 
     def do_chirp(self):
         radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
@@ -461,11 +465,14 @@ class RadarNode(Node):
         msg.cols = mat.shape[1]
         msg.dtype = str(mat.dtype) # "float64"
         msg.data = mat.flatten().tolist() # aplanado
-        self.pub_matrix.publish(msg)
-        self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
+
+        self.get_logger().info(f"msg.dtype {mat.dtype}")
+        #self.pub_matrix.publish(msg)
+        #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
 
         #self.ready_for_allow = True
         #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
+        return msg
 
 def main(args=None):
     rclpy.init(args=args)

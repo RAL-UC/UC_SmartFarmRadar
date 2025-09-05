@@ -1,10 +1,12 @@
 # Goal
-int32 angle_deg        # ángulo en grados para el que se solicita el beamforming
+int32 pan_deg # ángulo en grados para el que se solicita el beamforming
+int32 tilt_deg
 
 ---
 # Result
 bool success
 string message
+radar_msg/RadarData radar_data 
 
 ---
 # Feedback

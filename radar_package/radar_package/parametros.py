@@ -52,4 +52,13 @@ ANGLE_MIN = -80 # grados -80
 ANGLE_MAX = 80 # grados 80
 ANGLE_STEP = 1 # grados
 
+# PTU
+ANGLE_MIN_PTU_PAN = -80 # grados -80
+ANGLE_MAX_PTU_PAN = 80 # grados 80
+ANGLE_STEP_PTU_PAN = 1 # grados
+
+ANGLE_MIN_PTU_TILT = -45 # grados -80
+ANGLE_MAX_PTU_TILT = 45 # grados 80
+ANGLE_STEP_PTU_TILT = 1 # grados
+
 GLOBAL_ANGLES = -2*(ANGLE0+ANGLE_MIN) + 1 # 80 apertura de steering angle + 90 de pantilt dan una apertura de 170 hacia cada lado = 340 + 1

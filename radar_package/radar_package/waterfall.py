@@ -234,8 +234,8 @@ class RadarWaterfall(Node):
 
         # Resta medición de fondo si coincide la forma
         if self.medicion_fondo is not None and self.medicion_fondo.shape == mat.shape:
-            mat = mat - self.medicion_fondo
-            #mat = mat
+            #mat = mat - self.medicion_fondo
+            mat = mat
         elif self.medicion_fondo is not None and self.medicion_fondo.shape != mat.shape:
             self.get_logger().warn(f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta.")
 

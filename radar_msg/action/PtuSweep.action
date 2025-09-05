@@ -1,7 +1,8 @@
 # Goal
-int32 angles_deg           # si viene vacío, usa por defecto self.ptu_angles
-int32 tolerance_steps        # p.ej. 2
-float32 query_timeout_s      # p.ej. 8.0
+int32 pan_deg           # si viene vacío, usa por defecto self.ptu_angles
+int32 tilt_deg
+#int32 tolerance_steps        # p.ej. 2
+#float32 query_timeout_s      # p.ej. 8.0
 
 ---
 # Result
@@ -10,5 +11,6 @@ string message
 
 ---
 # Feedback
-int32 current_angle
+int32 current_pan_deg
+int32 current_tilt_deg
 string status

@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
 
+
+from std_msgs.msg import Header
+from radar_msg.msg import RadarData
 from radar_msg.action import PtuSweep, Beamform
 from ral_bunker_msgs.action import NextPose
 
@@ -14,8 +17,20 @@ class StateMachine(Node):
         self._radar_client = ActionClient(self, Beamform, 'radar_beamform') 
         self._bunker_action_client = ActionClient(self, NextPose, 'next_pose')
 
+        self._radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
 
-        self.ptu_angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
+        # Listas de ángulos PAN/TILT emparejadas
+        self.ptu_angles_pan = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
+        self.ptu_angles_tilt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+        # Verificación de longitudes
+        if len(self.ptu_angles_pan) != len(self.ptu_angles_tilt):
+            self.get_logger().warn(
+                f"Listas PAN({len(self.ptu_angles_pan)}) y TILT({len(self.ptu_angles_tilt)}) con longitudes distintas; "
+                f"usaré el mínimo."
+            )
+        self._num_points = min(len(self.ptu_angles_pan), len(self.ptu_angles_tilt))
+
         self._idx = 0
         self._current_angle = None
         self._busy = False
@@ -29,30 +44,37 @@ class StateMachine(Node):
         self._command_ptu_for_current()
 
     def _command_ptu_for_current(self):
-        if self._idx >= len(self.ptu_angles):
+        if self._idx >= len(self._num_points):
             # Terminamos todos los ángulos ⇒ solicitar movimiento de bunker
             self.get_logger().info("Todos los ángulos completados → solicitando bunker next_pose")
             self.send_bunker_next_goal()
             return
 
-        angle = self.ptu_angles[self._idx]
-        self._current_angle = angle
+        pan  = int(self.ptu_angles_pan[self._idx])
+        tilt = int(self.ptu_angles_tilt[self._idx])
+
+        self._current_pan = pan
+        self._current_tilt = tilt
         self._busy = True
 
         goal = PtuSweep.Goal()
         # Importante: mandamos SOLO el ángulo actual
-        goal.angles_deg = angle
-        goal.tolerance_steps = 0
-        goal.query_timeout_s = 8.0
+        goal.pan_deg  = pan
+        goal.tilt_deg = tilt
+        #goal.tolerance_steps = 0
+        #goal.query_timeout_s = 8.0
 
-        self.get_logger().info(f"[{self._idx+1}/{len(self.ptu_angles)}] PTU → {angle}°")
+        self.get_logger().info(f"[{self._idx+1}/{self._num_points}] PTU → pan={pan}°, tilt={tilt}°")
         self._ptu_client.wait_for_server()
         fut = self._ptu_client.send_goal_async(goal, feedback_callback=self._ptu_feedback_cb)
         fut.add_done_callback(self._ptu_goal_response_cb)
 
     def _ptu_feedback_cb(self, fb):
         f = fb.feedback
-        self.get_logger().info(f"[PTU] ang={f.current_angle}° | {f.status}")
+        pan  = getattr(f, 'current_pan_deg', None)
+        tilt = getattr(f, 'current_tilt_deg', None)
+        status = getattr(f, 'status', '')
+        self.get_logger().info(f"[PTU] pan={pan}°, tilt={tilt}° | {status}")
 
     def _ptu_goal_response_cb(self, future):
         exc = future.exception()
@@ -82,22 +104,24 @@ class StateMachine(Node):
             return
         
         # Al terminar el PTU en ese ángulo -> BEAMFORM de ese mismo ángulo
-        angle = self._current_angle
-        self.get_logger().info(f"PTU OK en {angle}° -> Radar Beamform")
-        self.start_beamforming(angle)
+        pan = self._current_pan
+        tilt = self._current_tilt
+        self.get_logger().info(f"PTU OK (pan={pan}°, tilt={tilt}°) → Radar Beamform")
+        self.start_beamforming(pan, tilt)
 
     ############## RADAR ###############
-    def start_beamforming(self, angle_deg: int):
+    def start_beamforming(self, pan_deg: int, tilt_deg: int):
         self._radar_client.wait_for_server()
         goal_bf = Beamform.Goal()
-        goal_bf.angle_deg = angle_deg
+        goal_bf.pan_deg  = int(pan_deg)
+        goal_bf.tilt_deg = int(tilt_deg)
 
         fut = self._radar_client.send_goal_async(goal_bf, feedback_callback=self._radar_feedback_cb)
         fut.add_done_callback(self._radar_goal_response_cb)
 
     def _radar_feedback_cb(self, fb):
         f = fb.feedback
-        self.get_logger().info(f"[RADAR] {f.status}")
+        self.get_logger().info(f"[RADAR] {getattr(f, 'status', '')}")
     
     def _radar_goal_response_cb(self, future):
         exc = future.exception()
@@ -122,8 +146,16 @@ class StateMachine(Node):
             self._busy = False
             self.get_logger().warn(f"Beamforming falló: {res.message}")
             return
+        
+        rd = getattr(res, 'radar_data', None)
+        if rd is not None:
+            self._radar_pub.publish(rd) 
+            self.get_logger().info(
+                f"Beamforming OK. RadarData recibido: {rd.rows}x{rd.cols} (dtype={rd.dtype})"
+            )
+        else:
+            self.get_logger().warn("Beamforming OK, pero Result no trae 'radar_data'.")
 
-        self.get_logger().info("Beamforming OK.")
         self._idx += 1
         self._busy = False
         self._command_ptu_for_current()
@@ -136,8 +168,8 @@ class StateMachine(Node):
         self._bunker_action_client.wait_for_server()
 
         # ASYNC VERSION
-        self._send_bunker_goal_future = self._bunker_action_client.send_goal_async(goal_msg)
-        self._send_bunker_goal_future.add_done_callback(self.bunker_goal_response_callback)
+        fut = self._bunker_action_client.send_goal_async(goal_msg)
+        fut.add_done_callback(self.bunker_goal_response_callback)
 
     def bunker_goal_response_callback(self, future):
         exc = future.exception()
@@ -152,9 +184,7 @@ class StateMachine(Node):
             return
         
         self.get_logger().info('Goal accepted')
-
-        self._get_bunker_result_future = goal_handle.get_result_async()
-        self._get_bunker_result_future.add_done_callback(self.get_bunker_result_callback)
+        goal_handle.get_result_async().add_done_callback(self.get_bunker_result_callback)
 
     def get_bunker_result_callback(self, future):
         #"""
@@ -176,12 +206,9 @@ class StateMachine(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-
     state_machine = StateMachine()
-
     executor = MultiThreadedExecutor()
     executor.add_node(state_machine)
-
     try:
         executor.spin()
     except KeyboardInterrupt:
