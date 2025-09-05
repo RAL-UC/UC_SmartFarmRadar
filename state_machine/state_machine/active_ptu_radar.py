@@ -11,7 +11,6 @@ from radar_msg.msg import RadarData
 from radar_msg.action import Beamform, PtuSweep
 from radar_package.parametros import *
 
-
 class PtuRadarScan(Node):
     """
     Espera Bool en /start_scan. Al recibir True:

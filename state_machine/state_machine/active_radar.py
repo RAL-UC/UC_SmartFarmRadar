@@ -5,7 +5,6 @@ from rclpy.action import ActionClient
 from radar_msg.msg import RadarData
 from radar_msg.action import Beamform
 
-
 class BeamformRepeat(Node):
     def __init__(self):
         super().__init__('radar_call_repeat')

@@ -3,8 +3,6 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
-
-
 from std_msgs.msg import Header
 from radar_msg.msg import RadarData
 from radar_msg.action import PtuSweep, Beamform
