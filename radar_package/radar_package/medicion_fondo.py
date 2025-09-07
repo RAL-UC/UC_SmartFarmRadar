@@ -29,7 +29,7 @@ class BackgroundCaptureNode(Node):
 
         # Declaración de parámetros (mismo estilo que tus otros nodos)
         self.topic = "/radar_data"
-        self.declare_parameter('captures', 10)
+        self.declare_parameter('captures', 15)
         self.declare_parameter('output_path', DEFAULT_OUTPUT)
         self.np_data_type = 'float64'
 

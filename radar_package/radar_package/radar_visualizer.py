@@ -114,17 +114,18 @@ class RadarVisualizer(Node):
         plt.show(block=False)
         self.create_timer(0.05, lambda: plt.pause(0.001))
 
-    def update_display(self, idx: int):
+    def update_display(self, angle_val: int):
         """Dibuja FFT + CFAR solamente en los índices válidos"""
+        idx = self.ang_to_idx(angle_val)
         mag = self.filtered_data[idx, :]
 
-        mag_min = np.min(mag)
-        mag_max = np.max(mag)
-        
-        if mag_max > mag_min:
-            mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
-        else:
-            mag = np.zeros_like(mag)
+        #mag_min = np.min(mag)
+        #mag_max = np.max(mag)
+        #
+        #if mag_max > mag_min:
+        #    mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
+        #else:
+        #    mag = np.zeros_like(mag)
 
         # valores de los controles de interfaz
         ng = int(self.sld_guard.val) # celdas de guarda
@@ -173,8 +174,8 @@ class RadarVisualizer(Node):
         self.ax.set_xlim(x[0], x[-1])
         # Y: 0 a 1 (normalizado min-max)
         #self.ax.set_ylim(np.min(mag), np.max(mag)) # np.min(mag), np.max(mag)
-        self.ax.set_ylim(0, 1)
-        #self.ax.set_ylim(-70, 0)
+        #self.ax.set_ylim(0, 1)
+        self.ax.set_ylim(-100, 30)
         self.secax.set_xlim(self.freq[0], self.freq[-1])
 
         self.fig.canvas.draw_idle()
@@ -222,14 +223,24 @@ class RadarVisualizer(Node):
         #self.sld_angle.ax.set_xlim(self.sld_angle.valmin, self.sld_angle.valmax)
 
         # Redibujar en la posición actual del slider
-        angle = self.sld_angle.val
-        idx = int(max(self.sld_angle.valmin, min(angle, self.sld_angle.valmax)))
-        self.update_display(idx)
+        angle_val = self.sld_angle.val
+        #angle_val = int(max(self.sld_angle.valmin, min(angle_val, self.sld_angle.valmax)))
+        self.update_display(angle_val)
 
     def on_slider_change(self, val: float):
-        idx = int(val)
+        angle_val = int(val)
+        
         if self.filtered_data is not None:
-            self.update_display(idx)
+            self.update_display(angle_val)
+
+    def ang_to_idx(self, ang: int) -> int:
+        """Convierte un ángulo (deg) a índice de fila [0..rows-1]."""
+        if self.filtered_data is None:
+            return 0
+        rows = self.filtered_data.shape[0]
+        # redondea al múltiplo de step
+        idx = int(round((ang - self.angle_min) / float(self.angle_step)))
+        return max(0, min(rows - 1, idx))
 
     def extend_with_means(self, mag, total_guard_ref):
         """

@@ -6,7 +6,6 @@ import adi # libreria de analog devices
 import time
 import numpy as np
 # mensajes de ros
-#from std_msgs.msg import Float32MultiArray
 from radar_msg.msg import RadarData
 #from std_msgs.msg import Bool
 from std_msgs.msg import Header
@@ -290,9 +289,9 @@ class RadarNode(Node):
             goal_handle.publish_feedback(feedback)
 
             # logica de beamforming
-            #msg = self.do_sweep()
+            msg = self.do_sweep()
             # logica de captura en un solo angulo
-            msg = self.do_chirp()
+            #msg = self.do_chirp()
 
             feedback.status = "OK, devolviendo resultado"
             goal_handle.publish_feedback(feedback)
@@ -362,8 +361,8 @@ class RadarNode(Node):
                 stop_index = start_index + GOOD_RAMP_SAMPLES
                 rx_bursts[burst] = sum_data[start_index:stop_index]
                 burst_data = np.ones(self.fft_size, dtype=complex)*1e-10 # arreglo con tamaño fft_size complejo con valores pequeños
-                win_funct = np.blackman(len(rx_bursts[burst])) # ventana blackman
-                #win_funct = np.ones(len(rx_bursts[burst])) # ventana rectangular
+                #win_funct = np.blackman(len(rx_bursts[burst])) # ventana blackman
+                win_funct = np.ones(len(rx_bursts[burst])) # ventana rectangular
                 # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
                 burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = rx_bursts[burst]*win_funct
 
@@ -466,7 +465,7 @@ class RadarNode(Node):
         msg.dtype = str(mat.dtype) # "float64"
         msg.data = mat.flatten().tolist() # aplanado
 
-        self.get_logger().info(f"msg.dtype {mat.dtype}")
+        #self.get_logger().info(f"msg.dtype {mat.dtype}")
         #self.pub_matrix.publish(msg)
         #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
 

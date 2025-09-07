@@ -88,3 +88,15 @@ client_loop: send disconnect: Broken pipe
 ros2 launch radar_package launch.py
 
 ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
+
+
+sudo apt install gazebo ros-humble-gazebo-ros-pkgs ros-humble-gazebo-ros
+sudo apt install ros-humble-joint-state-publisher ros-humble-joint-state-publisher-gui
+sudo apt install ros-humble-xacro
+
+sudo apt install -y ros-humble-gazebo-ros-pkgs ros-humble-xacro ros-humble-robot-state-publisher
+
+source install/local_setup.bash
+
+ROBOT_PKG=$(ros2 pkg prefix robot_description)
+

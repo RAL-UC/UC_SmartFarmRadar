@@ -12,9 +12,13 @@ from std_msgs.msg import String
 from radar_msg.action import PtuSweep
 #import asyncio
 
-# convencion
+# convencion RADAR
+# positivo derecha
+# negativo izquierda
+
+# convención PTU
+# negativo derecha
 # positivo izquierda
-# negativo derecha 
 
 # limites minimo y maximo de cada grado de libertad
 # paneo

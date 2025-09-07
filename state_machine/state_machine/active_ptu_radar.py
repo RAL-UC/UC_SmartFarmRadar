@@ -41,7 +41,9 @@ class PtuRadarScan(Node):
         self.publish_topic = str(p('publish_topic').value)
 
         # Vector de ángulos
-        self.pan_list = list(range(self.angle_min_ptu_pan, self.angle_max_ptu_pan + 1, self.angle_step_ptu_pan))
+        #self.pan_list = list(range(self.angle_min_ptu_pan, self.angle_max_ptu_pan + 1, self.angle_step_ptu_pan))
+        #self.pan_list = [0]}
+        self.pan_list = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
         self.tilt_list = [0] * len(self.pan_list)  # tilt fijo 0, mismo largo que pan_list
         if len(self.pan_list) == 0:
             raise RuntimeError("El rango de ángulos es vacío. Revisa angle_min/angle_max/angle_step.")
