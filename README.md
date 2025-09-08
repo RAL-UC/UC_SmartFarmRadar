@@ -133,6 +133,8 @@ ros2 bag play --loop UC_SmartFarmRadar/datos/wall/wall_0.db3
 
 ros2 bag play --loop UC_SmartFarmRadar/datos/ptu_radar_capture_routine/ptu_radar_capture_routine_0.db3
 ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/
+
+ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo/medicion_fondo_0.db3
 ```
 
 

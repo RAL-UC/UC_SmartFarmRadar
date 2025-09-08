@@ -27,32 +27,6 @@ class RadarVisualizer(Node):
 
         self.medicion_fondo = np.load(path_medicion_fondo) # carga medicion de fondo en datos de radar
 
-        cg = 1 # celdas de guarda
-        cr = 15 # celdas de referencia
-        b = 0 # valor bias
-        m = "average" # metodo de calculo del umbral
-        total_ext = cg + cr
-        self.get_logger().info(f"{self.medicion_fondo.shape}")
-        resultados = []
-        for fila in self.medicion_fondo:  
-            # extender bordes
-            mag_ext = self.extend_with_means(fila, total_ext)
-
-            # aplicar CFAR a la fila
-            thresh, targets = cfar(
-                mag_ext,
-                num_guard_cells=cg,
-                num_ref_cells=cr,
-                bias=b,
-                cfar_method=m
-            )
-
-            # quitar extensión
-            fila_procesada = self.unpad(thresh, total_ext)
-            resultados.append(fila_procesada)
-
-        self.medicion_fondo = np.vstack(resultados)
-
         self.filtered_data = None # data filtrada y desplazada en offset
         self.filtered_freq = None # eje x filtrado
 

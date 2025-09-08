@@ -6,6 +6,7 @@ from radar_msg.msg import RadarData
 import os
 import time
 from pathlib import Path
+from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
 
 # Ruta por defecto
 REPO_ROOT = Path.cwd() / "UC_SmartFarmRadar"
@@ -89,10 +90,38 @@ class BackgroundCaptureNode(Node):
         if self.count >= self.n_captures:
             try:
                 avg = (self.sum_accum / float(self.n_captures)).astype(self.np_data_type, copy=False)
-                np.save(self.output_path, avg)
+
+                cg = 1 # celdas de guarda
+                cr = 15 # celdas de referencia
+                b = 0 # valor bias
+                m = "average" # metodo de calculo del umbral
+                total_ext = cg + cr
+
+                resultados = []
+                for fila in avg:  
+                    # extender bordes
+                    mag_ext = self.extend_with_means(fila, total_ext)
+
+                    # aplicar CFAR a la fila
+                    thresh, targets = cfar(
+                        mag_ext,
+                        num_guard_cells=cg,
+                        num_ref_cells=cr,
+                        bias=b,
+                        cfar_method=m
+                    )
+
+                    # quitar extensión
+                    fila_procesada = self.unpad(thresh, total_ext)
+                    resultados.append(fila_procesada)
+
+                medicion_fondo = np.vstack(resultados)
+                medicion_fondo = medicion_fondo.data
+
+                np.save(self.output_path, medicion_fondo)
                 self.get_logger().info(
                     f"[OK] Fondo promediado guardado en '{self.output_path}' "
-                    f"(shape={avg.shape}, dtype={avg.dtype})"
+                    f"(shape={medicion_fondo.shape}, dtype={medicion_fondo.dtype})"
                 )
             except Exception as e:
                 self.get_logger().error(f"Error al guardar '{self.output_path}': {e}")
@@ -100,6 +129,28 @@ class BackgroundCaptureNode(Node):
                 # cerrar el nodo al terminar
                 #rclpy.shutdown()
                 raise CerrarNode("Cerrar nodo")
+            
+
+    def extend_with_means(self, mag, total_guard_ref):
+        """
+        Extiende el vector mag agregando `total_guard_ref` celdas al inicio y al final,
+        usando el promedio de las primeras y últimas `total_guard_ref` celdas reales
+        """
+        mean_start = np.mean(mag[:total_guard_ref])
+        mean_end = np.mean(mag[-total_guard_ref:])
+
+        # Relleno
+        pad_start = np.full(total_guard_ref, mean_start)
+        pad_end = np.full(total_guard_ref, mean_end)
+
+        # Vector extendido
+        mag_ext = np.concatenate([pad_start, mag, pad_end])
+
+        return mag_ext
+    
+    # Función para recortar de vuelta
+    def unpad(self, v, total_guard_ref):
+        return v[total_guard_ref:-total_guard_ref]
 
 def main(args=None):
     rclpy.init(args=args)
