@@ -42,9 +42,9 @@ class PtuRadarScan(Node):
 
         # Vector de ángulos
         #self.pan_list = list(range(self.angle_min_ptu_pan, self.angle_max_ptu_pan + 1, self.angle_step_ptu_pan))
-        #self.pan_list = [0]}
-        self.pan_list = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
-        self.tilt_list = [0] * len(self.pan_list)  # tilt fijo 0, mismo largo que pan_list
+        self.pan_list = [0]
+        #self.pan_list = [90, 75, 60, 45, 30, 15, 0, -15, -30, -45, -60, -75, -90]
+        self.tilt_list = [0] * len(self.pan_list) # tilt fijo 0, mismo largo que pan_list
         if len(self.pan_list) == 0:
             raise RuntimeError("El rango de ángulos es vacío. Revisa angle_min/angle_max/angle_step.")
 
@@ -141,15 +141,8 @@ class PtuRadarScan(Node):
                 self.get_logger().error("Servidor 'radar_beamform' no disponible.")
                 return
 
-            rows = []
+            #rows = []
             cols_expected = None
-            dtype_map = {
-                "float64": np.float64,
-                "float32": np.float32,
-                "int32":   np.int32,
-                "int64":   np.int64,
-            }
-
             for i, (pan, tilt) in enumerate(zip(self.pan_list, self.tilt_list), start=1):
                 tag = f"[{i}/{len(self.pan_list)}]"
 
@@ -180,37 +173,50 @@ class PtuRadarScan(Node):
                     return
 
                 rd: RadarData = rb_res.radar_data
-                np_dtype = dtype_map.get(rd.dtype, np.float64)
-                try:
-                    row = np.array(rd.data, dtype=np_dtype).reshape((rd.rows, rd.cols))
-                except Exception as e:
-                    self.get_logger().error(f"{tag} Error moldeando radar_data ({rd.rows}x{rd.cols}): {e!r}")
-                    return
 
-                if rd.rows != 1:
-                    self.get_logger().warn(f"{tag} Se esperaba rows=1; llegó rows={rd.rows}. Se apilará igualmente.")
                 if cols_expected is None:
                     cols_expected = rd.cols
                 elif rd.cols != cols_expected:
                     self.get_logger().error(f"{tag} Inconsistencia: cols {cols_expected} → {rd.cols}.")
                     return
+                
+                try:
+                    np_dtype = np.dtype(rd.dtype)   # toma el tipo desde el string del mensaje
+                except Exception:
+                    np_dtype = np.float64           # respaldo simple
 
-                rows.append(row)
+                rd.header = Header()
+                rd.header.stamp = self.get_clock().now().to_msg()
+                rd.header.frame_id = 'radar_sensor'
+                self.pub_final.publish(rd)
+                self.get_logger().info(f"{tag} Publicado RadarData ({rd.rows}x{rd.cols}) en '{self.publish_topic}'")
+
+                #row = np.asarray(rd.data, dtype=np_dtype).reshape((rd.rows, rd.cols))
+                #try:
+                #    row = np.array(rd.data, dtype=np_dtype).reshape((rd.rows, rd.cols))
+                #except Exception as e:
+                #    self.get_logger().error(f"{tag} Error moldeando radar_data ({rd.rows}x{rd.cols}): {e!r}")
+                #    return
+
+                #if rd.rows != 1:
+                #    self.get_logger().warn(f"{tag} Se esperaba rows=1; llegó rows={rd.rows}. Se apilará igualmente.")
+
+                #rows.append(row)
 
             # 3) Matriz final y publicación
-            mat = np.vstack(rows)
-            self.get_logger().info(f"Matriz final: shape={mat.shape}, dtype={mat.dtype}")
+            #mat = np.vstack(rows)
+            #self.get_logger().info(f"Matriz final: shape={mat.shape}, dtype={mat.dtype}")
 
-            msg = RadarData()
-            msg.header = Header()
-            msg.header.stamp = self.get_clock().now().to_msg()
-            msg.header.frame_id = 'radar_sensor'
-            msg.rows = int(mat.shape[0])
-            msg.cols = int(mat.shape[1])
-            msg.dtype = str(mat.dtype)
-            msg.data = mat.flatten().tolist()
-            self.pub_final.publish(msg)
-            self.get_logger().info(f"Publicado RadarData en '{self.publish_topic}'")
+            #msg = RadarData()
+            #msg.header = Header()
+            #msg.header.stamp = self.get_clock().now().to_msg()
+            #msg.header.frame_id = 'radar_sensor'
+            #msg.rows = int(mat.shape[0])
+            #msg.cols = int(mat.shape[1])
+            #msg.dtype = msg.dtype = np.dtype(mat.dtype).name # str(mat.dtype)
+            #msg.data = mat.flatten().tolist()
+            #self.pub_final.publish(msg)
+            #self.get_logger().info(f"Publicado RadarData en '{self.publish_topic}'")
 
             self.get_logger().info("Escaneo completado.")
 

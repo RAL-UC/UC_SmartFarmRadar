@@ -86,6 +86,7 @@ Ejecuta una rutina predefinida que en base a una señal habilitadora permite rea
 ```bash
 ros2 run ptu_routine ptu_routine_node
 ros2 topic pub --once /allow_routine_ptu std_msgs/msg/Bool "{data: true}"
+ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
 ```
 
 ### Paquete `radar_package`
@@ -130,7 +131,8 @@ ros2 bag play --loop UC_SmartFarmRadar/datos/radar_rosgbag_pao/dataset_0_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/wall/wall_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/wall/wall_0.db3
 
-ros2 bag record -a -o ~/datos
+ros2 bag play --loop UC_SmartFarmRadar/datos/ptu_radar_capture_routine/ptu_radar_capture_routine_0.db3
+ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/
 ```
 
 

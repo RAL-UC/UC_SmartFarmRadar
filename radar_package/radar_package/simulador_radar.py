@@ -24,16 +24,16 @@ class RadarSimServer(Node):
 
         #self.get_logger().info(f"Cargando base desde: {DEFAULT_OUTPUT}")
         base = np.load(DEFAULT_OUTPUT) # base 2D: (rows, cols)
-        row_idx = 80
-        base = base[row_idx, np.newaxis, :] # shape (1, N)
-        base = base.astype(np.float64, copy=False)
+        #row_idx = 80
+        #base = base[row_idx, np.newaxis, :] # shape (1, N)
+        self.dtype_str = "float64" # coincide con tu RadarData.msg
+        base = base.astype(self.dtype_str, copy=False)
         #if base.ndim != 2:
         #    raise RuntimeError(f"medicion_fondo.npy debe ser 2D. Shape={base.shape} | dtype={base.dtype}")
 
-        # Guardamos dimensiones y versión aplanada como float64
+        # dimensiones y version aplanada
         self.rows = int(base.shape[0])
         self.cols = int(base.shape[1])
-        self.dtype_str = "float64" # coincide con tu RadarData.msg
         self.data_flat = base.ravel().tolist()
 
         # Servidor de acción

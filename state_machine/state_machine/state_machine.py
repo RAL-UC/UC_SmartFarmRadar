@@ -18,8 +18,8 @@ class StateMachine(Node):
         self._radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
 
         # Listas de ángulos PAN/TILT emparejadas
-        self.ptu_angles_pan = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
-        self.ptu_angles_tilt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.ptu_angles_pan = [90, 75, 60, 45, 30, 15, 0, -15, -30, -45, -60, -75, -90]
+        self.ptu_angles_tilt = [0]*len(self.ptu_angles_pan)
 
         # Verificación de longitudes
         if len(self.ptu_angles_pan) != len(self.ptu_angles_tilt):

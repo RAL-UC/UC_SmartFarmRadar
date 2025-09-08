@@ -35,7 +35,7 @@ NUM_CHIRPS = 1 # solo un chirrido por cuadro
 # se define en segundos y se ignora el 10%
 PERCENT_IGNORE_SAMPLES = 0.1
 BEGIN_OFFSET_TIME = PERCENT_IGNORE_SAMPLES * RAMP_TIME_S # tiempo offset para el comienzo de la captura de datos para evitar no linealidades, transitorio o desfase
-GOOD_RAMP_SAMPLES = int((RAMP_TIME_S-BEGIN_OFFSET_TIME) * SAMPLE_RATE) # cuántas muestras "buenas" se pueden obtener después del offset}
+GOOD_RAMP_SAMPLES = int((RAMP_TIME_S-BEGIN_OFFSET_TIME) * SAMPLE_RATE) # cuántas muestras "buenas" se pueden obtener después del offset en frecuencia
 
 # se utiliza desplazamiento de fase en un rango pequeño en base a la frecuencia central
 # introduce un error el cual es pequeño 
@@ -46,10 +46,10 @@ STEP_DEG_PTU = 15
 N_MAPS = 13 # 180/15 + 1 -> desplazamiento de pantilt de 15 grados para un escaneo de 180 grados
 ANGLE0 = -90
 
-# radar
-FOV = 160
-ANGLE_MIN = -80 # grados -80
-ANGLE_MAX = 80 # grados 80
+# radar: considerar patron de transmision de antena transmisora, diagrama polar con 24° de apertura caida a -3db
+FOV = 100 # 160
+ANGLE_MIN = -50 # grados -80
+ANGLE_MAX = 50 # grados 80
 ANGLE_STEP = 1 # grados
 
 # PTU
