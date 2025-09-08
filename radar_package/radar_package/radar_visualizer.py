@@ -82,13 +82,13 @@ class RadarVisualizer(Node):
         # CONTROLES INTERACTIVOS
         # Slider para num_guard_cells
         ax_guard = plt.axes([0.02, 0.30, 0.015, 0.60])
-        self.sld_guard = Slider(ax_guard, 'Guard', 1, 20, valinit=3, valstep=1, orientation='vertical')
+        self.sld_guard = Slider(ax_guard, 'Guard', 1, 30, valinit=20, valstep=1, orientation='vertical')
 
         ax_ref = plt.axes([0.05, 0.30, 0.015, 0.60])
-        self.sld_ref = Slider(ax_ref, 'Ref', 1, 50, valinit=15, valstep=1, orientation='vertical')
+        self.sld_ref = Slider(ax_ref, 'Ref', 1, 70, valinit=50, valstep=1, orientation='vertical')
 
         ax_bias = plt.axes([0.08, 0.30, 0.015, 0.60])
-        self.sld_bias = Slider(ax_bias, 'Bias', 0.0, 1.0, valinit=0.2, valstep=0.01, orientation='vertical')
+        self.sld_bias = Slider(ax_bias, 'Bias', 0.0, 30.0, valinit=12, valstep=1, orientation='vertical')
 
         # Slider para fa_rate (solo para método false_alarm)
         ax_fa = plt.axes([0.11, 0.30, 0.015, 0.60]) 
@@ -114,17 +114,18 @@ class RadarVisualizer(Node):
         plt.show(block=False)
         self.create_timer(0.05, lambda: plt.pause(0.001))
 
-    def update_display(self, idx: int):
+    def update_display(self, angle_val: int):
         """Dibuja FFT + CFAR solamente en los índices válidos"""
+        idx = self.ang_to_idx(angle_val)
         mag = self.filtered_data[idx, :]
 
-        mag_min = np.min(mag)
-        mag_max = np.max(mag)
-        
-        if mag_max > mag_min:
-            mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
-        else:
-            mag = np.zeros_like(mag)
+        #mag_min = np.min(mag)
+        #mag_max = np.max(mag)
+        #
+        #if mag_max > mag_min:
+        #    mag = (mag - mag_min) / (mag_max - mag_min) # normalizacion min-max
+        #else:
+        #    mag = np.zeros_like(mag)
 
         # valores de los controles de interfaz
         ng = int(self.sld_guard.val) # celdas de guarda
@@ -160,7 +161,10 @@ class RadarVisualizer(Node):
                 labels.append(obj.get_label())
         self.ax.legend(handles, labels, loc='upper right')
 
+        # Detectar los enmascarados (masked = True)
         det_indices = np.where(targets.mask)[0] # obtener valores objetivos
+        # Detectar los no enmascarados (masked = False)
+        #det_indices = np.where(~targets.mask)[0] # obtener valores objetivos
 
         x = self.freq_to_distance(self.freq)
 
@@ -173,8 +177,8 @@ class RadarVisualizer(Node):
         self.ax.set_xlim(x[0], x[-1])
         # Y: 0 a 1 (normalizado min-max)
         #self.ax.set_ylim(np.min(mag), np.max(mag)) # np.min(mag), np.max(mag)
-        self.ax.set_ylim(0, 1)
-        #self.ax.set_ylim(-70, 0)
+        #self.ax.set_ylim(0, 1)
+        self.ax.set_ylim(-80, 50)
         self.secax.set_xlim(self.freq[0], self.freq[-1])
 
         self.fig.canvas.draw_idle()
@@ -185,20 +189,21 @@ class RadarVisualizer(Node):
         arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
         n_steering_angle, n_bins = [msg.rows, msg.cols]
         mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
+        mat = mat[:161, :]
         self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
-        #if self.medicion_fondo is not None:
-        #    if self.medicion_fondo.shape == mat.shape:
-        #        mat = mat - self.medicion_fondo
-        #        #mat = self.medicion_fondo
-        #    elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
-        #        fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
-        #        mat = mat - fondo_1x
-        #        #mat = fondo_1x
-        #        self.get_logger().info(f"{mat.shape}")
-        #    else:
-        #        self.get_logger().warn(
-        #            f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
-        #        )
+        if self.medicion_fondo is not None:
+            if self.medicion_fondo.shape == mat.shape:
+                mat = mat - self.medicion_fondo
+                #mat = self.medicion_fondo
+            elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
+                fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
+                mat = mat - fondo_1x
+                #mat = fondo_1x
+                self.get_logger().info(f"{mat.shape}")
+            else:
+                self.get_logger().warn(
+                    f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
+                )
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
@@ -222,14 +227,24 @@ class RadarVisualizer(Node):
         #self.sld_angle.ax.set_xlim(self.sld_angle.valmin, self.sld_angle.valmax)
 
         # Redibujar en la posición actual del slider
-        angle = self.sld_angle.val
-        idx = int(max(self.sld_angle.valmin, min(angle, self.sld_angle.valmax)))
-        self.update_display(idx)
+        angle_val = self.sld_angle.val
+        #angle_val = int(max(self.sld_angle.valmin, min(angle_val, self.sld_angle.valmax)))
+        self.update_display(angle_val)
 
     def on_slider_change(self, val: float):
-        idx = int(val)
+        angle_val = int(val)
+        
         if self.filtered_data is not None:
-            self.update_display(idx)
+            self.update_display(angle_val)
+
+    def ang_to_idx(self, ang: int) -> int:
+        """Convierte un ángulo (deg) a índice de fila [0..rows-1]."""
+        if self.filtered_data is None:
+            return 0
+        rows = self.filtered_data.shape[0]
+        # redondea al múltiplo de step
+        idx = int(round((ang - self.angle_min) / float(self.angle_step)))
+        return max(0, min(rows - 1, idx))
 
     def extend_with_means(self, mag, total_guard_ref):
         """

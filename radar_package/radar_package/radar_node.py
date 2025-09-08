@@ -6,7 +6,6 @@ import adi
 import time
 import numpy as np
 # mensajes de ros
-#from std_msgs.msg import Float32MultiArray
 from radar_msg.msg import RadarData
 from std_msgs.msg import Bool
 from std_msgs.msg import Header

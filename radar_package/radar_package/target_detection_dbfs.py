@@ -24,8 +24,8 @@ def cfar(X_k, num_guard_cells, num_ref_cells, bias=1, cfar_method='average', fa_
         upper_mean = np.mean(upper_nearby)
 
         if (cfar_method == 'average'):
-            mean = np.mean(np.concatenate((lower_nearby, upper_nearby)))
-            output = mean + bias
+            mean = np.mean(np.concatenate((lower_nearby, upper_nearby))) # concatena las celdas de de referencia superior e inferior
+            output = mean + bias # aplica un promedio y le suma el bias
         elif (cfar_method == 'greatest'):
             mean = max(lower_mean, upper_mean)
             output = mean + bias
@@ -40,12 +40,18 @@ def cfar(X_k, num_guard_cells, num_ref_cells, bias=1, cfar_method='average', fa_
         else:
             raise Exception('No CFAR method received')
 
-        cfar_values[center_index] = output
+        cfar_values[center_index] = output # aplica el valor central para obtener un arreglo de comparacion con el umbral
 
+    # mascara ajustada al tamaño de cfar_values, el resto de valores que no se rellenaron anteriormente se les pone el minimo
     cfar_values[np.where(cfar_values == np.ma.masked)] = np.min(cfar_values)
 
+    # crea una mascara del mismo tamaño de los datos de entrada
     targets_only = np.ma.masked_array(np.copy(X_k))
-    targets_only[np.where(abs(X_k) > abs(cfar_values))] = np.ma.masked
+
+    # hace la comparacion en base a valores absolutos
+    # candidatos a detección -> en esta posición había un valor por encima del umbral, pero lo estoy ocultando
+    #targets_only[np.where(abs(X_k) > abs(cfar_values))] = np.ma.masked
+    targets_only[np.where(X_k > cfar_values)] = np.ma.masked
 
     if (cfar_method == 'false_alarm'):
         return cfar_values, targets_only, noise_variance

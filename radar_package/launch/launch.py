@@ -81,18 +81,18 @@ def generate_launch_description():
         #),
         # ------------------------------------------------------------
         # ----------------- Simulador -----------------------
-        Node(
-            package='radar_package',
-            executable='simulador_radar',
-            name='simulador_radar',
-            output='screen'
-        ),
-        Node(
-            package='radar_package',
-            executable='simulador_ptu',
-            name='simulador_ptu',
-            output='screen'
-        ),
+        #Node(
+        #    package='radar_package',
+        #    executable='simulador_radar',
+        #    name='simulador_radar',
+        #    output='screen'
+        #),
+        #Node(
+        #    package='radar_package',
+        #    executable='simulador_ptu',
+        #    name='simulador_ptu',
+        #    output='screen'
+        #),
         # ---------------------------------------------------
     ])
 

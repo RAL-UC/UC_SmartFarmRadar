@@ -256,7 +256,7 @@ class RadarWaterfall(Node):
             # Inicializa buffer del waterfall si aún no existe o cambió ancho
             width = self.filtered_data.shape[1]
             if self.img_array is None or self.img_array.shape[1] != width:
-                self.img_array = np.ones((self.num_slices, width), dtype=np.float32) * (-120.0)
+                self.img_array = np.ones((self.num_slices, width), dtype=np.float64) * (-120.0) # float32
 
             # Calcula índice según slider actual y agenda redibujo
             angle = float(self.sld_angle.val)
