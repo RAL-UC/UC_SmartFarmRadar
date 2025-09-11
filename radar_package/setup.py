@@ -38,16 +38,18 @@ setup(
     entry_points={
         'console_scripts': [
             'radar_sync_node = radar_package.radar_sync_node:main',
-            'data_processing_node = radar_package.data_processing_node:main',
             'medicion_fondo = radar_package.medicion_fondo:main',
             'radar_visualizer = radar_package.radar_visualizer:main',
+            'data_processing = radar_package.data_processing:main',
             'mapa_cartesiano = radar_package.mapa_cartesiano:main',
+            # fuera de uso
             'radar_node = radar_package.radar_node:main',
             'process_data_node = radar_package.process_data_node:main',
             'mosaic_node = radar_package.mosaic:main',
             'waterfall = radar_package.waterfall:main',
             'simulador_radar = radar_package.simulador_radar:main',
             'simulador_ptu = radar_package.simulador_ptu:main',
+            'data_processing_node = radar_package.data_processing_node:main',
         ],
     },
 )

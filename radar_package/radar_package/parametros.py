@@ -30,7 +30,7 @@ TX_GAIN_CHAN1 = 0 # ganancia en la recepcion valor entre 0 y -88 CANAL 1 -> Tx2
 # Intervalo de Repetición de Pulso (PRI) -> tiempo entre chirridos
 # cada cuánto ocurrirá el ciclo TX+RX+espera -> cada cuadro coincide con un chirrido
 PRI = RAMP_TIME/1e3 + 1.0 # se define en milisegundos y se le suma 1 ms como margen de separación entre chirridos
-NUM_CHIRPS = 1 # solo un chirrido por cuadro
+NUM_CHIRPS = 20 # solo un chirrido por cuadro
 
 # se define en segundos y se ignora el 10%
 PERCENT_IGNORE_SAMPLES = 0.1
@@ -48,17 +48,29 @@ ANGLE0 = -90
 
 # radar: considerar patron de transmision de antena transmisora, diagrama polar con 24° de apertura caida a -3db
 FOV = 100 # 160
-ANGLE_MIN = -50 # grados -80
-ANGLE_MAX = 50 # grados 80
-ANGLE_STEP = 1 # grados
+ANGLE_MIN_RADAR_BEAM = -50 # grados -80
+ANGLE_MAX_RADAR_BEAM = 50 # grados 80
+ANGLE_STEP_RADAR_BEAM = 1 # grados
 
 # PTU
-ANGLE_MIN_PTU_PAN = -80 # grados -80
-ANGLE_MAX_PTU_PAN = 80 # grados 80
+ANGLE_MIN_PTU_PAN = -50 # grados -80
+ANGLE_MAX_PTU_PAN = 50 # grados 80
 ANGLE_STEP_PTU_PAN = 1 # grados
 
 ANGLE_MIN_PTU_TILT = -45 # grados -80
 ANGLE_MAX_PTU_TILT = 45 # grados 80
 ANGLE_STEP_PTU_TILT = 1 # grados
 
-GLOBAL_ANGLES = -2*(ANGLE0+ANGLE_MIN) + 1 # 80 apertura de steering angle + 90 de pantilt dan una apertura de 170 hacia cada lado = 340 + 1
+GLOBAL_ANGLES = -2*(ANGLE0+ANGLE_MIN_RADAR_BEAM) + 1 # 80 apertura de steering angle + 90 de pantilt dan una apertura de 170 hacia cada lado = 340 + 1
+
+# CFAR
+CFAR_GUARD = 20
+CFAR_REF = 50
+CFAR_BIAS = 12
+CFAR_METHOD = "average"
+
+# Filtro de distancia
+MIN_RANGE_M = 0
+MAX_RANGE_M = 20
+
+REPEAT_CAPTURE = -1

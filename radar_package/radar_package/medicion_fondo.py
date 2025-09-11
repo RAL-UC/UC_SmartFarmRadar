@@ -7,10 +7,11 @@ import os
 import time
 from pathlib import Path
 from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
+from radar_package.parametros import *
 
 # Ruta por defecto
 REPO_ROOT = Path.cwd() / "UC_SmartFarmRadar"
-DEFAULT_OUTPUT = str(REPO_ROOT / "datos" / "medicion_fondo.npy")
+DEFAULT_OUTPUT = str(REPO_ROOT / "datos" / "medicion_fondo_cielo.npy")
 
 class CerrarNode(Exception):
     """Cerrar nodo"""
@@ -30,7 +31,7 @@ class BackgroundCaptureNode(Node):
 
         # Declaración de parámetros (mismo estilo que tus otros nodos)
         self.topic = "/radar_data"
-        self.declare_parameter('captures', 15)
+        self.declare_parameter('captures', REPEAT_CAPTURE)
         self.declare_parameter('output_path', DEFAULT_OUTPUT)
         self.np_data_type = 'float64'
 
@@ -89,19 +90,19 @@ class BackgroundCaptureNode(Node):
         # Si alcanzamos N, promediamos y guardamos
         if self.count >= self.n_captures:
             try:
-                avg = (self.sum_accum / float(self.n_captures)).astype(self.np_data_type, copy=False)
+                avg = (self.sum_accum / float(self.n_captures)).astype(self.np_data_type, copy=False) # avg
 
                 cg = 1 # celdas de guarda
                 cr = 15 # celdas de referencia
                 b = 0 # valor bias
                 m = "average" # metodo de calculo del umbral
                 total_ext = cg + cr
-
+                
                 resultados = []
                 for fila in avg:  
                     # extender bordes
                     mag_ext = self.extend_with_means(fila, total_ext)
-
+                
                     # aplicar CFAR a la fila
                     thresh, targets = cfar(
                         mag_ext,
@@ -110,11 +111,11 @@ class BackgroundCaptureNode(Node):
                         bias=b,
                         cfar_method=m
                     )
-
+                
                     # quitar extensión
                     fila_procesada = self.unpad(thresh, total_ext)
                     resultados.append(fila_procesada)
-
+                
                 medicion_fondo = np.vstack(resultados)
                 medicion_fondo = medicion_fondo.data
 

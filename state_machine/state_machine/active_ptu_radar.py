@@ -43,7 +43,9 @@ class PtuRadarScan(Node):
         # Vector de ángulos
         #self.pan_list = list(range(self.angle_min_ptu_pan, self.angle_max_ptu_pan + 1, self.angle_step_ptu_pan))
         self.pan_list = [0]
+        #self.pan_list = [0, 0, 0, 0, 0]
         #self.pan_list = [90, 75, 60, 45, 30, 15, 0, -15, -30, -45, -60, -75, -90]
+        #self.tilt_list = [-20, -15, -10, -5, 0]
         self.tilt_list = [0] * len(self.pan_list) # tilt fijo 0, mismo largo que pan_list
         if len(self.pan_list) == 0:
             raise RuntimeError("El rango de ángulos es vacío. Revisa angle_min/angle_max/angle_step.")
@@ -185,12 +187,17 @@ class PtuRadarScan(Node):
                 except Exception:
                     np_dtype = np.float64           # respaldo simple
 
-                rd.header = Header()
-                rd.header.stamp = self.get_clock().now().to_msg()
-                rd.header.frame_id = 'radar_sensor'
+                #rd.header = Header()
+                #rd.header.stamp = self.get_clock().now().to_msg()
+                #rd.header.frame_id = 'radar_sensor'
+                #rd.pan_deg = float(pan)
+                #rd.tilt_deg = float(tilt)
+
+
                 self.pub_final.publish(rd)
                 self.get_logger().info(f"{tag} Publicado RadarData ({rd.rows}x{rd.cols}) en '{self.publish_topic}'")
 
+                
                 #row = np.asarray(rd.data, dtype=np_dtype).reshape((rd.rows, rd.cols))
                 #try:
                 #    row = np.array(rd.data, dtype=np_dtype).reshape((rd.rows, rd.cols))

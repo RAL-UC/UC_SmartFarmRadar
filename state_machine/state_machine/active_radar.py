@@ -4,6 +4,7 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from radar_msg.msg import RadarData
 from radar_msg.action import Beamform
+from radar_package.parametros import *
 
 class BeamformRepeat(Node):
     def __init__(self):
@@ -12,7 +13,7 @@ class BeamformRepeat(Node):
         # Parámetros
         self.declare_parameter('pan_deg', 0)
         self.declare_parameter('tilt_deg', 0)
-        self.declare_parameter('repeat', -1) # -1 para infinitas capturas
+        self.declare_parameter('repeat', REPEAT_CAPTURE) # -1 para infinitas capturas
         self.declare_parameter('wait_server_timeout_s', 10.0)
 
         self.pan_deg = int(self.get_parameter('pan_deg').value)
@@ -38,7 +39,7 @@ class BeamformRepeat(Node):
         self.send_goal()
 
     def send_goal(self):
-        if (not self.infinite) and (self.current_iter >= self.repeat):
+        if (not self.infinite) and (self.current_iter > self.repeat):
             self.get_logger().info("Todas las repeticiones completadas.")
             rclpy.shutdown()
             return

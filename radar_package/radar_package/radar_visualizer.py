@@ -15,7 +15,7 @@ from ament_index_python.packages import get_package_share_directory # recursos
 
 # recursos
 pkg_share = get_package_share_directory('radar_package')
-path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo.npy')
+path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo_centro.npy')
 
 class RadarVisualizer(Node):
     def __init__(self):
@@ -31,24 +31,29 @@ class RadarVisualizer(Node):
         self.filtered_freq = None # eje x filtrado
 
         # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min', ANGLE_MIN) # grados
-        self.declare_parameter('angle_max', ANGLE_MAX) # grados
-        self.declare_parameter('angle_step', ANGLE_STEP) # grados
+        self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM) # grados
+        self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM) # grados
+        self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM) # grados
 
         # Leer parámetros
         p = self.get_parameter
-        self.angle_min = p('angle_min').get_parameter_value().integer_value
-        self.angle_max = p('angle_max').get_parameter_value().integer_value
-        self.angle_step = p('angle_step').get_parameter_value().integer_value
+        self.angle_min_radar_beam = p('angle_min_radar_beam').get_parameter_value().integer_value
+        self.angle_max_radar_beam = p('angle_max_radar_beam').get_parameter_value().integer_value
+        self.angle_step_radar_beam = p('angle_step_radar_beam').get_parameter_value().integer_value
 
         # Funciones de conversión freq <-> range (eje inferior y superior)
         self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2 * SLOPE)
-        self.distance_to_freq = lambda d: SIGNAL_FREQ + (d * 2 * SLOPE / C)
+        self.distance_to_freq = lambda d: SIGNAL_FREQ + OFFSET + (d * 2 * SLOPE / C)
 
         # Ejes y datos que se rellenan en el primer mensaje
         self.freq = None # eje de frecuencias
         self.filtered_data = None
         self.valid_indices = None # índices >= 0 m
+
+        self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
+        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
+        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
+        self.sum_win_funct = np.sum(self.win_funct)
 
         # Configuración de Matplotlib interactivo
         plt.ion()
@@ -76,8 +81,8 @@ class RadarVisualizer(Node):
 
         # Slider de frames (recorrido en steering angle)
         ax_slider = plt.axes([0.25, 0.05, 0.65, 0.03])
-        init_angle = np.clip(0, self.angle_min, self.angle_max) if self.angle_min <= 0 <= self.angle_max else self.angle_min
-        self.sld_angle = Slider(ax_slider, 'Steering angle', self.angle_min, self.angle_max, valinit=init_angle, valstep=self.angle_step)
+        init_angle = np.clip(0, self.angle_min_radar_beam, self.angle_max_radar_beam) if self.angle_min_radar_beam <= 0 <= self.angle_max_radar_beam else self.angle_min_radar_beam
+        self.sld_angle = Slider(ax_slider, 'Steering angle', self.angle_min_radar_beam, self.angle_max_radar_beam, valinit=init_angle, valstep=self.angle_step_radar_beam)
 
         # CONTROLES INTERACTIVOS
         # Slider para num_guard_cells
@@ -186,24 +191,41 @@ class RadarVisualizer(Node):
     def listener_callback(self, msg: RadarData):
         self.get_logger().info(f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"')
         # Reconstruir matriz original
-        arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
+        #arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
+        #self.get_logger().info(f"mat.dtype {msg.data_real}")
+
         n_steering_angle, n_bins = [msg.rows, msg.cols]
-        mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
-        mat = mat[:161, :]
-        self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
-        if self.medicion_fondo is not None:
-            if self.medicion_fondo.shape == mat.shape:
-                mat = mat - self.medicion_fondo
-                #mat = self.medicion_fondo
-            elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
-                fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
-                mat = mat - fondo_1x
-                #mat = fondo_1x
-                self.get_logger().info(f"{mat.shape}")
-            else:
-                self.get_logger().warn(
-                    f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
-                )
+        #mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
+        data_real = np.array(msg.data_real,  dtype=msg.dtype)
+        data_real = data_real.reshape((n_steering_angle, n_bins))
+        data_imag = np.array(msg.data_imag,  dtype=msg.dtype)
+        data_imag = data_imag.reshape((n_steering_angle, n_bins))
+
+
+        mat = data_real + 1j*data_imag
+        mat = mat.reshape((n_steering_angle, n_bins))
+        mat[:,:GOOD_RAMP_SAMPLES] = mat[:,:GOOD_RAMP_SAMPLES] * self.win_funct
+        sp = np.fft.fftshift(np.abs(np.fft.fft(mat, axis=1)), axes=1)
+        s_mag = sp / self.sum_win_funct
+        s_mag = np.maximum(s_mag, 10 ** (-15))
+        mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
+        
+
+        #mat = mat[:161, :]
+        #self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
+        #if self.medicion_fondo is not None:
+        #    if self.medicion_fondo.shape == mat.shape:
+        #        mat = mat - self.medicion_fondo
+        #        #mat = self.medicion_fondo
+        #    elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
+        #        fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
+        #        mat = mat - fondo_1x
+        #        #mat = fondo_1x
+        #        self.get_logger().info(f"{mat.shape}")
+        #    else:
+        #        self.get_logger().warn(
+        #            f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
+        #        )
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
@@ -243,7 +265,7 @@ class RadarVisualizer(Node):
             return 0
         rows = self.filtered_data.shape[0]
         # redondea al múltiplo de step
-        idx = int(round((ang - self.angle_min) / float(self.angle_step)))
+        idx = int(round((ang - self.angle_min_radar_beam) / float(self.angle_step_radar_beam)))
         return max(0, min(rows - 1, idx))
 
     def extend_with_means(self, mag, total_guard_ref):

@@ -24,15 +24,15 @@ class RadarDataSubscriber(Node):
         self.base_data = np.load(path_base_data) # banda base
 
         # parámetros configurables
-        self.declare_parameter('angle_min', ANGLE_MIN) # grados
-        self.declare_parameter('angle_max', ANGLE_MAX) # grados
-        self.declare_parameter('angle_step', ANGLE_STEP) # grados
+        self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM) # grados
+        self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM) # grados
+        self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM) # grados
 
         # leer parámetros
         p = self.get_parameter
-        self.angle_min = p('angle_min').get_parameter_value().integer_value
-        self.angle_max = p('angle_max').get_parameter_value().integer_value
-        self.angle_step  = p('angle_step').get_parameter_value().integer_value
+        self.angle_min_radar_beam = p('angle_min_radar_beam').get_parameter_value().integer_value
+        self.angle_max_radar_beam = p('angle_max_radar_beam').get_parameter_value().integer_value
+        self.angle_step_radar_beam  = p('angle_step_radar_beam').get_parameter_value().integer_value
 
         # Funciones de conversión freq <-> range (eje inferior y superior en graficos)
         self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2 * SLOPE)

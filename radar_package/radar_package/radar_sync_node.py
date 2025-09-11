@@ -36,17 +36,17 @@ class RadarNode(Node):
         self.reconnect_timer = None
 
         # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min', ANGLE_MIN) # grados
-        self.declare_parameter('angle_max', ANGLE_MAX) # grados
-        self.declare_parameter('angle_step', ANGLE_STEP) # grados
+        self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM) # grados
+        self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM) # grados
+        self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM) # grados
 
         # Leer parámetros
         p = self.get_parameter
-        self.angle_min = p('angle_min').get_parameter_value().integer_value
-        self.angle_max = p('angle_max').get_parameter_value().integer_value
-        self.angle_step  = p('angle_step').get_parameter_value().integer_value
+        self.angle_min_radar_beam = p('angle_min_radar_beam').get_parameter_value().integer_value
+        self.angle_max_radar_beam = p('angle_max_radar_beam').get_parameter_value().integer_value
+        self.angle_step_radar_beam  = p('angle_step_radar_beam').get_parameter_value().integer_value
 
-        self.angles = np.arange(self.angle_min, self.angle_max+1, self.angle_step) # vector de angulos en recorrido
+        self.angles = np.arange(self.angle_min_radar_beam, self.angle_max_radar_beam+1, self.angle_step_radar_beam) # vector de angulos en recorrido
         #self.get_logger().info(f"self.angles: {self.angles}")
 
         # --- Publisher ---
@@ -58,9 +58,11 @@ class RadarNode(Node):
         # servidor
         self._beamform_server = ActionServer(self, Beamform, 'radar_beamform', self.execute_beamform_cb)
 
-        self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
-        #self.win_funct = np.blackman(len(rx_bursts[burst])) # ventana blackman -> posiblemente se deba considerar offset
-        self.sum_win_funct = np.sum(self.win_funct)
+        #self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
+        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
+        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
+        #self.sum_win_funct = np.sum(self.win_funct)
+        
 
         # Inicializar hardware
         self.init_hardware() # restriccion: para inicializar se debe esperar correctamente a que el disposivo encienda
@@ -190,11 +192,12 @@ class RadarNode(Node):
         tdd.enable = True # se activa el TDD con toda la configuración aplicada
         # el Pluto responderá a los triggers externos, activando los canales configurados, transmitiendo chirridos y capturando datos en los búferes de recepción
 
-        # Desde el inicio de cada rampa, ¿cuántos puntos "buenos" queremos?
+        # Desde el inicio destart_offset_time cada rampa, ¿cuántos puntos "buenos" queremos?
         # Para una mejor linealidad de frecuencia, evite el inicio de las rampas
 
-        self.start_offset_time = tdd.channel[0].on_ms/1e3 + BEGIN_OFFSET_TIME # desde el inicio de encendido del canal TDD hasta donde realmente empiezan las muestras útiles
+        self.start_offset_time = int(tdd.channel[0].on_ms/1e3 + BEGIN_OFFSET_TIME) # desde el inicio de encendido del canal TDD hasta donde realmente empiezan las muestras útiles
         self.start_offset_samples = int(self.start_offset_time * SAMPLE_RATE) # cuántas muestras deben ignorarse para empezar justo desde esa parte útil
+        #self.get_logger().info(f"{self.start_offset_time}, {self.start_offset_samples}") # 0, 0
 
         # dimension de la fft para el número de puntos de datos de rampa
         # FFT funcionan más rápido y eficientemente cuando su tamaño es una potencia de 2
@@ -210,6 +213,7 @@ class RadarNode(Node):
         power = 12 # potencia
         self.fft_size = int(2**power) # potencia de 2^8 = 256 - 4096
         self.num_samples_frame = int(tdd.frame_length_ms/1000*SAMPLE_RATE) # cuántas muestras hay en un frame TDD completo
+        #.get_logger().info(f"{self.num_samples_frame}")
         # aumento del tamaño de la FFT para que sea mayor que num_samples_frame
         while self.num_samples_frame > self.fft_size:     
             power=power+1
@@ -293,9 +297,29 @@ class RadarNode(Node):
             goal_handle.publish_feedback(feedback)
 
             # logica de beamforming
-            msg = self.do_sweep()
+            mat = self.do_sweep()
             # logica de captura en un solo angulo
-            #msg = self.do_chirp()
+            #mat = self.do_chirp()
+
+            #self.get_logger().info(f"mat.dtype {mat.dtype}")
+
+            msg = RadarData()
+            msg.header = Header()
+            msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
+            msg.header.frame_id = 'radar_sensor'
+            msg.pan_deg = pan
+            msg.tilt_deg = tilt
+            msg.rows = mat.shape[0]
+            msg.cols = mat.shape[1]
+            #msg.dtype = str(mat.dtype)
+            #msg.data = mat.flatten().tolist() # aplanado
+            real64 = np.ascontiguousarray(np.real(mat), dtype=np.float64).ravel(order="C")
+            imag64 = np.ascontiguousarray(np.imag(mat), dtype=np.float64).ravel(order="C")
+
+            msg.data_real = real64.tolist()
+            msg.data_imag = imag64.tolist()
+            msg.dtype = str(real64.dtype) # "float64"
+            #self.get_logger().info(f"len real {len(real64.tolist())}, len img {len(imag64.tolist())} tipo {msg.dtype}")
 
             feedback.status = "OK, devolviendo resultado"
             goal_handle.publish_feedback(feedback)
@@ -358,33 +382,42 @@ class RadarNode(Node):
             data = self.my_sdr.rx() # entender bien como funciona los chirps, si agranda la cantidad de datos recibidos, suponiendo que si lo hace
             sum_data = data[0] + data[1] # canal 1 y canal 2
 
+            #self.get_logger().info(f"shape sum_data {sum_data.shape}")
+
+
             #rx_bursts = np.zeros((NUM_CHIRPS, GOOD_RAMP_SAMPLES), dtype=np.complex128) # rx_bursts limpio
-            time_data = np.ones((NUM_CHIRPS, self.fft_size), dtype=np.complex128) # fft_data limpio
+            time_data = np.ones((NUM_CHIRPS, self.fft_size), dtype=np.complex128)*1e-10 # fft_data limpio
 
             for burst in range(NUM_CHIRPS): # para cada chirrido individual
                 # indicie inicial y final dentro del arreglo sum_data
                 start_index = self.start_offset_samples + burst*self.num_samples_frame
                 stop_index = start_index + GOOD_RAMP_SAMPLES
                 #burst_data = np.ones(self.fft_size, dtype=np.complex128)*1e-10 # arreglo con tamaño fft_size complejo con valores pequeños
-                burst_slice = sum_data[start_index:stop_index] * self.win_funct
+                #burst_slice = sum_data[start_index:stop_index] * self.win_funct
+                burst_slice = sum_data[start_index:stop_index]
+                #self.get_logger().info(f"{start_index}, {stop_index}")
                 # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
                 #burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
                 time_data[burst,self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
 
-            avg_time = np.mean(time_data, axis=0) # promediar entre filas, matiene las columnas
-            sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time))) # fft y shift a centro
-            s_mag = np.abs(sp) / self.sum_win_funct # calcula valor absoluto y aplica una normalización por la suma de los coeficientes de la ventana
-            s_mag = np.maximum(s_mag, 10 ** (-15)) # pone un piso minimo para evitar valores o en s_mag y posteriormente -inf con el logaritmo
+            #avg_time = np.mean(time_data[1:,:], axis=0) # promediar entre filas, matiene las columnas
+            avg_time = np.mean(time_data, axis=0)
+            #sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time))) # fft y shift a centro
+            # redundancia en valor absoluto
+            #s_mag = np.abs(sp) / self.sum_win_funct # calcula valor absoluto y aplica una normalización por la suma de los coeficientes de la ventana
+            #s_mag = sp / self.sum_win_funct
+            #s_mag = np.maximum(s_mag, 10 ** (-15)) # pone un piso minimo para evitar valores o en s_mag y posteriormente -inf con el logaritmo
             # espectro en magnitud lineal (valor absoluto de la FFT, ya normalizado por la ventana)
             # normalizando respecto al valor máximo posible de la ADC (full-scale) 12 bits con signo
             # Por convención, la magnitud en decibeles de una señal se calcula como
             # 20 * log_10 (A/A_ref)
             # Si un bin de FFT tiene s_mag = 2048 -> 0dBFS
             # decibeles referidos al máximo teórico de la ADC
-            s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
+            #s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
             # se obtiene un rango desde -366.22 db a 0 aprox
 
-            radar_data_matriz.append(s_dbfs)
+            #radar_data_matriz.append(s_dbfs)
+            radar_data_matriz.append(avg_time)
 
         mat = np.vstack(radar_data_matriz) # shape (barrido en angulos, tamaño fft)
         
@@ -399,23 +432,23 @@ class RadarNode(Node):
         #self.get_logger().info(f'Datos guardados en {save_path}')
 
         # publicar ros
-        msg = RadarData()
-        msg.header = Header()
-        msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
-        msg.header.frame_id = 'radar_sensor'
-        msg.rows = mat.shape[0]
-        msg.cols = mat.shape[1]
-        msg.dtype = str(mat.dtype) # "float64"
-        msg.data = mat.flatten().tolist() # aplanado
+        #msg = RadarData()
+        #msg.header = Header()
+        #msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
+        #msg.header.frame_id = 'radar_sensor'
+        #msg.rows = mat.shape[0]
+        #msg.cols = mat.shape[1]
+        #msg.dtype = str(mat.dtype) # "float64"
+        #msg.data = mat.flatten().tolist() # aplanado
         #self.pub_matrix.publish(msg)
         #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
 
         #self.ready_for_allow = True
         #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
-        return msg
+        return mat
 
     def do_chirp(self):
-        radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
+        #radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
         theta = 0
         
         # 1) direccion del haz
@@ -436,6 +469,8 @@ class RadarNode(Node):
         data = self.my_sdr.rx()
         sum_data = data[0] + data[1] # canal 1 y canal 2
 
+        #self.get_logger().info(f"shape sum_data {sum_data.shape}")
+
         #rx_bursts = np.zeros((NUM_CHIRPS, GOOD_RAMP_SAMPLES), dtype=complex)
         time_data = np.ones((NUM_CHIRPS, self.fft_size), dtype=np.complex128) # fft_data limpio
 
@@ -449,19 +484,22 @@ class RadarNode(Node):
             #win_funct = np.ones(len(rx_bursts[burst]))
             #win_funct = np.ones(len(rx_bursts[burst])) # ventana rectangular
             # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
-            burst_slice = sum_data[start_index:stop_index] * self.win_funct
+            #burst_slice = sum_data[start_index:stop_index] * self.win_funct
+            burst_slice = sum_data[start_index:stop_index]
             #burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = rx_bursts[burst]*win_funct
             time_data[burst,self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
-
+        
+        #avg_time = np.mean(time_data[1:,:], axis=0)
         avg_time = np.mean(time_data, axis=0) # promediar entre filas, matiene las columnas
-        sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time)))
-        s_mag = np.abs(sp) / self.sum_win_funct
-        s_mag = np.maximum(s_mag, 10 ** (-15))
-        s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
+        #sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time)))
+        # redundancia en valor absoluto
+        #s_mag = np.abs(sp) / self.sum_win_funct
+        #s_mag = np.maximum(s_mag, 10 ** (-15))
+        #s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
+        #radar_data_matriz.append(s_dbfs)
 
-        radar_data_matriz.append(s_dbfs)
-
-        mat = np.vstack(radar_data_matriz) # shape (161,1024)
+        #radar_data_matriz.append(avg_time)
+        mat = np.vstack(avg_time) # shape (barrido en angulos, tamaño fft)
         
         # GUARDAR DATA .npy
         #save_dir = '/home/dammr/Desktop/UC_SmartFarmRadar/capturas_radar' # Carpeta donde guardar
@@ -474,14 +512,14 @@ class RadarNode(Node):
         #self.get_logger().info(f'Datos guardados en {save_path}')
 
         # publicar ros
-        msg = RadarData()
-        msg.header = Header()
-        msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
-        msg.header.frame_id = 'radar_sensor'
-        msg.rows = mat.shape[0]
-        msg.cols = mat.shape[1]
-        msg.dtype = str(mat.dtype) # "float64"
-        msg.data = mat.flatten().tolist() # aplanado
+        #msg = RadarData()
+        #msg.header = Header()
+        #msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
+        #msg.header.frame_id = 'radar_sensor'
+        #msg.rows = mat.shape[0]
+        #msg.cols = mat.shape[1]
+        #msg.dtype = str(mat.dtype) # "float64"
+        #msg.data = mat.flatten().tolist() # aplanado
 
         #self.get_logger().info(f"msg.dtype {mat.dtype}")
         #self.pub_matrix.publish(msg)
@@ -489,7 +527,7 @@ class RadarNode(Node):
 
         #self.ready_for_allow = True
         #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
-        return msg
+        return mat
 
 def main(args=None):
     rclpy.init(args=args)
