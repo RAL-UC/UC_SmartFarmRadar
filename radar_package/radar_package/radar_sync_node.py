@@ -192,11 +192,12 @@ class RadarNode(Node):
         tdd.enable = True # se activa el TDD con toda la configuración aplicada
         # el Pluto responderá a los triggers externos, activando los canales configurados, transmitiendo chirridos y capturando datos en los búferes de recepción
 
-        # Desde el inicio de cada rampa, ¿cuántos puntos "buenos" queremos?
+        # Desde el inicio destart_offset_time cada rampa, ¿cuántos puntos "buenos" queremos?
         # Para una mejor linealidad de frecuencia, evite el inicio de las rampas
 
-        self.start_offset_time = tdd.channel[0].on_ms/1e3 + BEGIN_OFFSET_TIME # desde el inicio de encendido del canal TDD hasta donde realmente empiezan las muestras útiles
+        self.start_offset_time = int(tdd.channel[0].on_ms/1e3 + BEGIN_OFFSET_TIME) # desde el inicio de encendido del canal TDD hasta donde realmente empiezan las muestras útiles
         self.start_offset_samples = int(self.start_offset_time * SAMPLE_RATE) # cuántas muestras deben ignorarse para empezar justo desde esa parte útil
+        #self.get_logger().info(f"{self.start_offset_time}, {self.start_offset_samples}") # 0, 0
 
         # dimension de la fft para el número de puntos de datos de rampa
         # FFT funcionan más rápido y eficientemente cuando su tamaño es una potencia de 2
@@ -212,6 +213,7 @@ class RadarNode(Node):
         power = 12 # potencia
         self.fft_size = int(2**power) # potencia de 2^8 = 256 - 4096
         self.num_samples_frame = int(tdd.frame_length_ms/1000*SAMPLE_RATE) # cuántas muestras hay en un frame TDD completo
+        #.get_logger().info(f"{self.num_samples_frame}")
         # aumento del tamaño de la FFT para que sea mayor que num_samples_frame
         while self.num_samples_frame > self.fft_size:     
             power=power+1
@@ -299,6 +301,8 @@ class RadarNode(Node):
             # logica de captura en un solo angulo
             #mat = self.do_chirp()
 
+            #self.get_logger().info(f"mat.dtype {mat.dtype}")
+
             msg = RadarData()
             msg.header = Header()
             msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
@@ -307,10 +311,15 @@ class RadarNode(Node):
             msg.tilt_deg = tilt
             msg.rows = mat.shape[0]
             msg.cols = mat.shape[1]
-            msg.dtype = str(mat.dtype) # "float64"
-            msg.data = mat.flatten().tolist() # aplanado
+            #msg.dtype = str(mat.dtype)
+            #msg.data = mat.flatten().tolist() # aplanado
+            real64 = np.ascontiguousarray(np.real(mat), dtype=np.float64).ravel(order="C")
+            imag64 = np.ascontiguousarray(np.imag(mat), dtype=np.float64).ravel(order="C")
 
-            self.get_logger().info(f"msg.dtype {msg.dtype}")
+            msg.data_real = real64.tolist()
+            msg.data_imag = imag64.tolist()
+            msg.dtype = str(real64.dtype) # "float64"
+            #self.get_logger().info(f"len real {len(real64.tolist())}, len img {len(imag64.tolist())} tipo {msg.dtype}")
 
             feedback.status = "OK, devolviendo resultado"
             goal_handle.publish_feedback(feedback)
@@ -386,6 +395,7 @@ class RadarNode(Node):
                 #burst_data = np.ones(self.fft_size, dtype=np.complex128)*1e-10 # arreglo con tamaño fft_size complejo con valores pequeños
                 #burst_slice = sum_data[start_index:stop_index] * self.win_funct
                 burst_slice = sum_data[start_index:stop_index]
+                #self.get_logger().info(f"{start_index}, {stop_index}")
                 # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
                 #burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
                 time_data[burst,self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
@@ -395,6 +405,7 @@ class RadarNode(Node):
             #sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time))) # fft y shift a centro
             # redundancia en valor absoluto
             #s_mag = np.abs(sp) / self.sum_win_funct # calcula valor absoluto y aplica una normalización por la suma de los coeficientes de la ventana
+            #s_mag = sp / self.sum_win_funct
             #s_mag = np.maximum(s_mag, 10 ** (-15)) # pone un piso minimo para evitar valores o en s_mag y posteriormente -inf con el logaritmo
             # espectro en magnitud lineal (valor absoluto de la FFT, ya normalizado por la ventana)
             # normalizando respecto al valor máximo posible de la ADC (full-scale) 12 bits con signo

@@ -191,33 +191,41 @@ class RadarVisualizer(Node):
     def listener_callback(self, msg: RadarData):
         self.get_logger().info(f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"')
         # Reconstruir matriz original
-        arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
-        n_steering_angle, n_bins = [msg.rows, msg.cols]
-        mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
+        #arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
+        #self.get_logger().info(f"mat.dtype {msg.data_real}")
 
-        #mat = mat * self.win_funct
-        #sp = np.fft.fftshift(np.abs(np.fft.fft(mat, axis=1)), axes=1)
-        #s_mag = sp / self.sum_win_funct
-        #s_mag = np.maximum(s_mag, 10 ** (-15))
-        #mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
-        #
-        #self.get_logger().info(f"mat.dtype {mat.dtype}")
+        n_steering_angle, n_bins = [msg.rows, msg.cols]
+        #mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
+        data_real = np.array(msg.data_real,  dtype=msg.dtype)
+        data_real = data_real.reshape((n_steering_angle, n_bins))
+        data_imag = np.array(msg.data_imag,  dtype=msg.dtype)
+        data_imag = data_imag.reshape((n_steering_angle, n_bins))
+
+
+        mat = data_real + 1j*data_imag
+        mat = mat.reshape((n_steering_angle, n_bins))
+        mat[:,:GOOD_RAMP_SAMPLES] = mat[:,:GOOD_RAMP_SAMPLES] * self.win_funct
+        sp = np.fft.fftshift(np.abs(np.fft.fft(mat, axis=1)), axes=1)
+        s_mag = sp / self.sum_win_funct
+        s_mag = np.maximum(s_mag, 10 ** (-15))
+        mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
+        
 
         #mat = mat[:161, :]
-        self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
-        if self.medicion_fondo is not None:
-            if self.medicion_fondo.shape == mat.shape:
-                mat = mat - self.medicion_fondo
-                #mat = self.medicion_fondo
-            elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
-                fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
-                mat = mat - fondo_1x
-                #mat = fondo_1x
-                self.get_logger().info(f"{mat.shape}")
-            else:
-                self.get_logger().warn(
-                    f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
-                )
+        #self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
+        #if self.medicion_fondo is not None:
+        #    if self.medicion_fondo.shape == mat.shape:
+        #        mat = mat - self.medicion_fondo
+        #        #mat = self.medicion_fondo
+        #    elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
+        #        fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
+        #        mat = mat - fondo_1x
+        #        #mat = fondo_1x
+        #        self.get_logger().info(f"{mat.shape}")
+        #    else:
+        #        self.get_logger().warn(
+        #            f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
+        #        )
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
