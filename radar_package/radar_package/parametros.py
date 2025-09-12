@@ -1,4 +1,7 @@
-SDR_URI = "ip:phaser.local:50901"
+# conexion por vnc viewer phaser.local clave analog
+# profile distintos para componetes conectados por ethernet o usb ethernet
+# url gps 192.168.3.1
+SDR_URI = "ip:phaser.local:50901" # 192.168.2.50, 192.168.2.60 o 192.168.2.40
 PHASER_URI = "ip:phaser.local"
 ELEMENT_SPACING = 0.014 # espaciamiento de los parches en el phaser en metros
 
@@ -53,13 +56,13 @@ ANGLE_MAX_RADAR_BEAM = 50 # grados 80
 ANGLE_STEP_RADAR_BEAM = 1 # grados
 
 # PTU
-ANGLE_MIN_PTU_PAN = -50 # grados -80
-ANGLE_MAX_PTU_PAN = 50 # grados 80
-ANGLE_STEP_PTU_PAN = 1 # grados
+ANGLE_MIN_PTU_PAN = -90 # grados -90
+ANGLE_MAX_PTU_PAN = 90 # grados 90
+ANGLE_STEP_PTU_PAN = 15 # grados
 
-ANGLE_MIN_PTU_TILT = -45 # grados -80
-ANGLE_MAX_PTU_TILT = 45 # grados 80
-ANGLE_STEP_PTU_TILT = 1 # grados
+ANGLE_MIN_PTU_TILT = -20 # grados
+ANGLE_MAX_PTU_TILT = 20 # grados
+ANGLE_STEP_PTU_TILT = 5 # grados
 
 GLOBAL_ANGLES = -2*(ANGLE0+ANGLE_MIN_RADAR_BEAM) + 1 # 80 apertura de steering angle + 90 de pantilt dan una apertura de 170 hacia cada lado = 340 + 1
 

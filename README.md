@@ -140,6 +140,7 @@ ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo/medicion_fondo_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo_centro/medicion_fondo_centro_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo_cielo/medicion_fondo_cielo_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental/medicion_experimental_0.db3
+ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental_taller/medicion_experimental_taller_0.db3
 ```
 
 
