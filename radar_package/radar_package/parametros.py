@@ -1,6 +1,6 @@
 # conexion por vnc viewer phaser.local clave analog
 # profile distintos para componetes conectados por ethernet o usb ethernet
-# url gps 192.168.3.1
+# url gps simplerik3b pro septentrio mosaic x5 ardusimple 192.168.3.1 - https://www.ardusimple.es/how-to-configure-septentrio-mosaic-x5-and-mosaic-h/
 SDR_URI = "ip:phaser.local:50901" # 192.168.2.50, 192.168.2.60 o 192.168.2.40
 PHASER_URI = "ip:phaser.local"
 ELEMENT_SPACING = 0.014 # espaciamiento de los parches en el phaser en metros

@@ -34,7 +34,7 @@ class RadarMapAccumulator(Node):
         super().__init__('radar_map_accumulator')
 
         # ---------------- Parámetros ----------------
-        self.declare_parameter('fixed_frame', 'map')           # frame destino para acumular
+        self.declare_parameter('fixed_frame', 'base_link')           # frame destino para acumular
         #self.declare_parameter('history_secs', 30.0)           # ventana temporal (seg) para conservar puntos (0 = infinito)
         #self.declare_parameter('voxel_leaf', 0.10)             # tamaño de voxel (m); 0 o <0 desactiva
         #self.declare_parameter('max_points', 300000)           # límite duro de puntos
