@@ -68,6 +68,10 @@ class RadarSphericalToCartesian(Node):
         self.cfar_bias  = p('cfar_bias').value
         self.cfar_meth  = p('cfar_method').value
         
+        self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
+        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
+        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
+        self.sum_win_funct = np.sum(self.win_funct)
 
         # conversión frecuencia <-> distancia
         self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2.0 * SLOPE)
@@ -100,28 +104,40 @@ class RadarSphericalToCartesian(Node):
         except Exception:
             np_dtype = np.float64
 
-        data = np.asarray(msg.data, dtype=np_dtype)
         n_rows, n_cols = int(msg.rows), int(msg.cols)
+        
+        data_real = np.array(msg.data_real,  dtype=msg.dtype)
+        data_real = data_real.reshape((n_rows, n_cols))
+        data_imag = np.array(msg.data_imag,  dtype=msg.dtype)
+        data_imag = data_imag.reshape((n_rows, n_cols))
 
-        if data.size != n_rows * n_cols:
-            self.get_logger().error(f"Datos incompatibles con rows/cols: data={data.size}, rows*cols={n_rows*n_cols}")
-            return
+        mat = data_real + 1j*data_imag
+        #mat = mat.reshape((n_rows, n_cols))
+        mat[:,:GOOD_RAMP_SAMPLES] = mat[:,:GOOD_RAMP_SAMPLES] * self.win_funct
+        sp = np.fft.fftshift(np.abs(np.fft.fft(mat, axis=1)), axes=1)
+        s_mag = sp / self.sum_win_funct
+        s_mag = np.maximum(s_mag, 10 ** (-15))
+        mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
 
-        mat = data.reshape((n_rows, n_cols))
+        #if data.size != n_rows * n_cols:
+        #    self.get_logger().error(f"Datos incompatibles con rows/cols: data={data.size}, rows*cols={n_rows*n_cols}")
+        #    return
+
+        #mat = data.reshape((n_rows, n_cols))
 
         # 2) Restar medición de fondo si está disponible
-        if self.medicion_fondo is not None:
-            try:
-                if self.medicion_fondo.shape == mat.shape:
-                    mat = mat - self.medicion_fondo
-                elif self.medicion_fondo.ndim == 2 and self.medicion_fondo.shape[0] == 1 and self.medicion_fondo.shape[1] == n_cols:
-                    mat = mat - self.medicion_fondo[0, :]
-                elif self.medicion_fondo.ndim == 1 and self.medicion_fondo.shape[0] == n_cols:
-                    mat = mat - self.medicion_fondo
-                else:
-                    self.get_logger().warn(f"medicion_fondo shape {self.medicion_fondo.shape} no calza; se omite resta.")
-            except Exception as e:
-                self.get_logger().warn(f"Error restando medición de fondo: {e!r}")
+        #if self.medicion_fondo is not None:
+        #    try:
+        #        if self.medicion_fondo.shape == mat.shape:
+        #            mat = mat - self.medicion_fondo
+        #        elif self.medicion_fondo.ndim == 2 and self.medicion_fondo.shape[0] == 1 and self.medicion_fondo.shape[1] == n_cols:
+        #            mat = mat - self.medicion_fondo[0, :]
+        #        elif self.medicion_fondo.ndim == 1 and self.medicion_fondo.shape[0] == n_cols:
+        #            mat = mat - self.medicion_fondo
+        #        else:
+        #            self.get_logger().warn(f"medicion_fondo shape {self.medicion_fondo.shape} no calza; se omite resta.")
+        #    except Exception as e:
+        #        self.get_logger().warn(f"Error restando medición de fondo: {e!r}")
 
         # 3) Eje de frecuencia y r (distancia)
         freq = np.linspace(-SAMPLE_RATE/2.0, SAMPLE_RATE/2.0, n_cols, endpoint=False)

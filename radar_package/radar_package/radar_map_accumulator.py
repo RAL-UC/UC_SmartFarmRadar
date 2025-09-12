@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import rclpy
+from rclpy.node import Node
+import numpy as np
+#from typing import Tuple
+#import math
+#import time
+
+from std_msgs.msg import Header
+#from sensor_msgs.msg import PointCloud2, PointField
+#from sensor_msgs_py import point_cloud2 as pc2
+
+from radar_msg.msg import RadarCartesian
+
+from std_srvs.srv import Empty
+
+import tf_transformations  # si no lo tienes, puedes construir la matriz a mano
+import tf2_ros
+from geometry_msgs.msg import TransformStamped
+from builtin_interfaces.msg import Time as TimeMsg
+
+class RadarMapAccumulator(Node):
+    """
+    Acumula puntos de RadarCartesian en un frame fijo (map/odom),
+    usando TF2 para transformar cada frame. Aplica voxel grid y/o
+    ventana temporal para evitar crecimiento sin límite.
+    Publica RadarCartesian y PointCloud2 acumulados.
+    Servicio ~/clear_map para limpiar.
+    """
+
+    def __init__(self):
+        super().__init__('radar_map_accumulator')
+
+        # ---------------- Parámetros ----------------
+        self.declare_parameter('fixed_frame', 'base_link')           # frame destino para acumular
+        #self.declare_parameter('history_secs', 30.0)           # ventana temporal (seg) para conservar puntos (0 = infinito)
+        #self.declare_parameter('voxel_leaf', 0.10)             # tamaño de voxel (m); 0 o <0 desactiva
+        #self.declare_parameter('max_points', 300000)           # límite duro de puntos
+        self.declare_parameter('publish_rate_hz', 10.0)         # frecuencia de publicación del acumulado
+
+        p = self.get_parameter
+        self.fixed_frame   = p('fixed_frame').value
+        #self.history_secs  = float(p('history_secs').value)
+        #self.voxel_leaf    = float(p('voxel_leaf').value)
+        #self.max_points    = int(p('max_points').value)
+        self.pub_rate_hz   = float(p('publish_rate_hz').value)
+
+        # --------------- Subs / Pubs ----------------
+        self.sub = self.create_subscription(RadarCartesian, 'radar_cartesian', self.cb_points, 10)
+        self.pub_rc = self.create_publisher(RadarCartesian, 'radar_cartesian_accum', 10)
+        #self.pub_pc = self.create_publisher(PointCloud2, 'radar_cloud_accum', 10)
+
+        # --------------- TF2 (buffer + listener) ---------------
+        # se crea el buffer de transformaciones, mantiene hasta x segundos del historial de transformaciones
+        self.tf_buffer   = tf2_ros.Buffer(cache_time=rclpy.time.Duration(seconds=3*60.0))
+        # suscribirse al tópico /tf y /tf_static automáticamente y va llenando el buffer
+        # lanza un hilo separado que procesa los mensajes de TF, así el buffer se va actualizando en paralelo aunque tu nodo esté ocupado en otra cosa
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self, spin_thread=True)
+
+        # --------------- Almacenamiento ---------------
+        # guardamos puntos como float32 y timestamps en float64 (epoch)
+        self._pts = np.empty((0, 3), dtype=np.float32)
+        self._ts  = np.empty((0,),   dtype=np.float64)
+
+        # --------------- Timer de publicación ---------------
+        period = 1.0 / max(1e-3, self.pub_rate_hz)
+        self.timer = self.create_timer(period, self.publish_accumulated)
+
+        # --------------- Servicio para limpiar ---------------
+        self.srv_clear = self.create_service(Empty, 'clear_map', self.srv_clear_cb)
+
+        #self.get_logger().info(
+        #    f"RadarMapAccumulator escuchando {self.input_topic} → frame fijo '{self.fixed_frame}', "
+        #    f"ventana={self.history_secs}s, voxel={self.voxel_leaf} m, max_points={self.max_points}"
+        #)
+
+    # ---------- Utilidad: TransformStamped → matriz 4x4 ----------
+    @staticmethod
+    def transform_to_mat44(tf: TransformStamped) -> np.ndarray:
+        # recibe un objeto TransformStamped que contiene:
+        # una traslación en x, y, z
+        # una rotacion en cuaterniones x, y, z, w 
+        t = tf.transform.translation # traslacion
+        q = tf.transform.rotation # rotacion en quaterniones
+        # construye un array con el cuaternión
+        # parte vectorial q.x, q.y, q.z -> direccion del eje de rotacion
+        # parte escalar q.w -> relacionado con el angulo de rotacion theta
+        # se convierte el quaternion en una matriz de rotacion de 4x4
+        # q = (x, y, z, w) = w + xi + yj + zk
+        # [[ r11 r12 r13 0 ]
+        #  [ r21 r22 r23 0 ]
+        #  [ r31 r32 r33 0 ]
+        #  [  0   0   0  1 ]]
+        # w = cos(theta/2) | (x, y, z) = axis * sin(theta/2)
+        # matriz homogenea: matriz 4x4 en 3D representar rotaciones y traslaciones al mismo tiempo
+        T = tf_transformations.quaternion_matrix([q.x, q.y, q.z, q.w])
+        # se añade el vector de traslacion a la matriz
+        T[0, 3] = t.x
+        T[1, 3] = t.y
+        T[2, 3] = t.z
+        return T
+
+    # ---------- Callback de puntos entrantes ----------
+    def cb_points(self, msg: RadarCartesian):
+        # puntos de entrada
+        x = np.asarray(msg.x, dtype=np.float32)
+        y = np.asarray(msg.y, dtype=np.float32)
+        z = np.asarray(msg.z, dtype=np.float32)
+
+        if x.size == 0:
+            return
+
+        pts = np.stack([x, y, z], axis=1) # shape (N,3)
+
+        # Obtener transform msg.frame al fixed_frame al tiempo del mensaje
+        src_frame = msg.header.frame_id
+        stamp = rclpy.time.Time(seconds=msg.header.stamp.sec, nanoseconds=msg.header.stamp.nanosec)
+
+        # tf cada 10hz
+        # pide a TF2 la transformación entre dos frames de referencia en un momento concreto
+        # frame destino map odom -> después de este paso, todos los puntos quedarán expresados en este frame
+        # desde el frame de origen radar_sensor, en verdad es desde el ptu
+        # Timeout: cuánto esperar a que el transform aparezca en el buffer de TF2
+        # devuelve un TransformStamped
+        try:
+            tf = self.tf_buffer.lookup_transform(
+                self.fixed_frame,     # target
+                src_frame,            # source
+                stamp,                # at time
+                rclpy.duration.Duration(seconds=0.2) # timeout
+            )
+        except Exception as e:
+            # Si no hay TF puntual, intenta el último disponible (0)
+            self.get_logger().warn(f"No TF {src_frame}->{self.fixed_frame} @ {stamp.nanoseconds}ns: {e!r}. Intento latest...")
+            try:
+                tf = self.tf_buffer.lookup_transform(self.fixed_frame, src_frame, rclpy.time.Time())
+            except Exception as e2:
+                self.get_logger().error(f"Sin TF disponible {src_frame}->{self.fixed_frame}: {e2!r}")
+                return
+
+        # aplicar transform
+        T = self.transform_to_mat44(tf)
+        # a los puntos de entrada se les concatena una columna de 1s
+        # eso permite usar la matriz homogénea T para transformar rotación + traslación en una sola operación.
+        pts_h = np.concatenate([pts, np.ones((pts.shape[0], 1), dtype=np.float32)], axis=1) # Nx4
+        # se multiplica la matriz de rotacion por todos los puntos homogeneos resultando tambien homogeneo
+        # se hace la traspuesta para obtener nuevamente (N, 4)
+        # se obtienen las 3 primeras columnas y asegura el tipo de dato
+        pts_tf = (T @ pts_h.T).T[:, :3].astype(np.float32)
+
+        # guardar puntos y timestamp
+        stamp_sec = msg.header.stamp.sec + 1e-9 * msg.header.stamp.nanosec
+        self._pts = np.vstack([self._pts, pts_tf]) # apilacion de puntos
+        # guarda el timestamp de captura de los datos del sensor
+        # np.full crea un vector del mismo tamaño que la cantidad de puntos, todos con el mismo timestamp
+        self._ts  = np.concatenate([self._ts, np.full(pts_tf.shape[0], stamp_sec, dtype=np.float64)])
+        
+        # 
+        #self.compact()
+
+    # ---------- Compactación: ventana de tiempo, tope de puntos, voxel ----------
+    #def compact(self):
+    #    # 1) Ventana temporal
+    #    if self.history_secs > 0.0:
+    #        cutoff = time.time() - self.history_secs
+    #        mask = self._ts >= cutoff
+    #        self._pts = self._pts[mask]
+    #        self._ts  = self._ts[mask]
+    #
+    #    # 2) Límite duro de puntos (mantén los más recientes)
+    #    if self._pts.shape[0] > self.max_points:
+    #        keep = self._pts.shape[0] - self.max_points
+    #        # descarta los más antiguos
+    #        self._pts = self._pts[-self.max_points:, :]
+    #        self._ts  = self._ts[-self.max_points:]
+    #
+    #    # 3) Voxel grid (downsample espacial)
+    #    if self.voxel_leaf is not None and self.voxel_leaf > 0.0 and self._pts.shape[0] > 0:
+    #        leaf = self.voxel_leaf
+    #        keys = np.floor(self._pts / leaf).astype(np.int64)
+    #        # usa vista estructurada para agrupar por llave (x,y,z discretas)
+    #        keys_view = keys.view([('x', np.int64), ('y', np.int64), ('z', np.int64)]).reshape(-1)
+    #        # ordena por llave
+    #        order = np.argsort(keys_view, kind='mergesort')
+    #        keys_sorted = keys_view[order]
+    #        pts_sorted  = self._pts[order]
+    #        ts_sorted   = self._ts[order]
+    #
+    #        # agrupa (promedio por voxel)
+    #        uniq, first_idx = np.unique(keys_sorted, return_index=True)
+    #        # índices de fin de grupo
+    #        last_idx = np.concatenate([first_idx[1:] - 1, np.array([pts_sorted.shape[0]-1])])
+    #
+    #        new_pts = []
+    #        new_ts  = []
+    #        for a, b in zip(first_idx, last_idx):
+    #            # promedio de puntos del voxel (podrías usar el último timestamp o promedio)
+    #            new_pts.append(np.mean(pts_sorted[a:b+1], axis=0))
+    #            new_ts.append(np.max(ts_sorted[a:b+1]))  # conservamos el ts más reciente del voxel
+    #
+    #        self._pts = np.vstack(new_pts).astype(np.float32)
+    #        self._ts  = np.array(new_ts, dtype=np.float64)
+
+    # ---------- Publicación periódica del acumulado ----------
+    def publish_accumulated(self):
+        if self._pts.shape[0] == 0:
+            return
+
+        # Header en el frame fijo con tiempo actual
+        hdr = Header() # crea un header 
+        now = self.get_clock().now().to_msg()
+        hdr.stamp = now # tiempo actual del reloj del nodo
+        hdr.frame_id = self.fixed_frame # frame fijo al que se transforman todos los puntos
+
+        # publicar RadarCartesian acumulado
+        msg_rc = RadarCartesian()
+        msg_rc.header = hdr
+        msg_rc.x = self._pts[:, 0].tolist()
+        msg_rc.y = self._pts[:, 1].tolist()
+        msg_rc.z = self._pts[:, 2].tolist()
+
+         # construir lista de Time por punto
+        stamps = []
+        for ts in self._ts:
+            t = TimeMsg()
+            t.sec = int(ts)
+            t.nanosec = int((ts - int(ts)) * 1e9)
+            stamps.append(t)
+        msg_rc.stamps = stamps
+        self.pub_rc.publish(msg_rc)
+
+        # 2) PointCloud2 acumulado (para RViz)
+        #fields = [
+        #    PointField(name='x', offset=0,  datatype=PointField.FLOAT32, count=1),
+        #    PointField(name='y', offset=4,  datatype=PointField.FLOAT32, count=1),
+        #    PointField(name='z', offset=8,  datatype=PointField.FLOAT32, count=1),
+        #]
+        #pc2_msg = pc2.create_cloud(hdr, fields, self._pts)
+        #self.pub_pc.publish(pc2_msg)
+
+    # ---------- Servicio para limpiar ----------
+    def srv_clear_cb(self, req, res):
+        self._pts = np.empty((0, 3), dtype=np.float32)
+        self._ts  = np.empty((0,),   dtype=np.float64)
+        self.get_logger().info("Mapa acumulado limpiado.")
+        return res
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = RadarMapAccumulator()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

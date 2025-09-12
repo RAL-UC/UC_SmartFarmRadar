@@ -203,7 +203,7 @@ class RadarVisualizer(Node):
 
 
         mat = data_real + 1j*data_imag
-        mat = mat.reshape((n_steering_angle, n_bins))
+        #mat = mat.reshape((n_steering_angle, n_bins))
         mat[:,:GOOD_RAMP_SAMPLES] = mat[:,:GOOD_RAMP_SAMPLES] * self.win_funct
         sp = np.fft.fftshift(np.abs(np.fft.fft(mat, axis=1)), axes=1)
         s_mag = sp / self.sum_win_funct

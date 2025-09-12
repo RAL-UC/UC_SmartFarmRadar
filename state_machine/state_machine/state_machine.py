@@ -38,11 +38,11 @@ class StateMachine(Node):
     ############## PTU ###############
     def start_cycle(self):
         self._idx = 0
-        self.get_logger().info(f"Inicio de ciclo PTU -> Radar. Ángulos: {self.ptu_angles}")
+        self.get_logger().info(f"Inicio de ciclo PTU -> Radar. Ángulos pan: {self.ptu_angles_pan}, ángulos tilt: {self.ptu_angles_tilt}")
         self._command_ptu_for_current()
 
     def _command_ptu_for_current(self):
-        if self._idx >= len(self._num_points):
+        if self._idx >= self._num_points:
             # Terminamos todos los ángulos ⇒ solicitar movimiento de bunker
             self.get_logger().info("Todos los ángulos completados → solicitando bunker next_pose")
             self.send_bunker_next_goal()
