@@ -87,6 +87,7 @@ Ejecuta una rutina predefinida que en base a una señal habilitadora permite rea
 ros2 run ptu_routine ptu_routine_node
 ros2 topic pub --once /allow_routine_ptu std_msgs/msg/Bool "{data: true}"
 ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
+ros2 topic pub /start_scan std_msgs/msg/Bool "{data: true}"
 ```
 
 ### Paquete `radar_package`
@@ -135,6 +136,7 @@ ros2 bag play --loop UC_SmartFarmRadar/datos/ptu_radar_capture_routine/ptu_radar
 ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_fondo_centro
 ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_fondo_cielo
 ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_experimental
+ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_experimental_taller
 
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo/medicion_fondo_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo_centro/medicion_fondo_centro_0.db3
@@ -143,6 +145,9 @@ ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental/medicion_expe
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental_taller/medicion_experimental_taller_0.db3
 ```
 
+```bash
+ros2 service call /clear_map std_srvs/src/empty "{}"
+```
 
 
 Para cargar el entorno de ros2 de forma automatica en tu computador y espacio de trabajo añade lo siguiente a tu archivo `~/.bashrc`

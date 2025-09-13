@@ -7,6 +7,7 @@ from std_msgs.msg import Header
 from radar_msg.msg import RadarData
 from radar_msg.action import PtuSweep, Beamform
 from ral_bunker_msgs.action import NextPose
+from std_srvs.srv import Empty
 
 class StateMachine(Node):
     def __init__(self):
@@ -16,6 +17,8 @@ class StateMachine(Node):
         self._bunker_action_client = ActionClient(self, NextPose, 'next_pose')
 
         self._radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
+
+        #self._clear_cli = self.create_client(Empty, 'clear_map')
 
         # Listas de ángulos PAN/TILT emparejadas
         self.ptu_angles_pan = [90, 75, 60, 45, 30, 15, 0, -15, -30, -45, -60, -75, -90]
@@ -32,6 +35,8 @@ class StateMachine(Node):
         self._idx = 0
         self._current_angle = None
         self._busy = False
+
+        self._bunker_pose_id = 0 
         
         self.start_cycle()
 
@@ -147,10 +152,22 @@ class StateMachine(Node):
         
         rd = getattr(res, 'radar_data', None)
         if rd is not None:
-            self._radar_pub.publish(rd) 
-            self.get_logger().info(
-                f"Beamforming OK. RadarData recibido: {rd.rows}x{rd.cols} (dtype={rd.dtype})"
-            )
+            try:
+                rd.bunker_pose_id = int(self._bunker_pose_id)
+                rd.pan_deg = int(self._current_pan)
+                rd.tilt_deg = int(self._current_tilt)
+                self.get_logger().info(
+                    f"Beamforming OK. RadarData recibido: {rd.rows}x{rd.cols} (dtype={rd.dtype})"
+                )
+            except Exception as e:
+                self.get_logger().warn(f"No pude setear metadatos en RadarData: {e!r}")
+            
+            self._radar_pub.publish(rd)
+            #self.get_logger().info(
+            #    f"Beamforming OK. RadarData recibido: {rd.rows}x{rd.cols} (dtype={rd.dtype}) "
+            #    f"[pose_id={self._bunker_pose_id}, sweep_id={self._sweep_cycle_id}, "
+            #    f"pan={self._current_pan}, tilt={self._current_tilt}]"
+            #)
         else:
             self.get_logger().warn("Beamforming OK, pero Result no trae 'radar_data'.")
 
@@ -199,7 +216,25 @@ class StateMachine(Node):
         res = future.result().result
         self.get_logger().info(f"Bunker listo ({res}) → reiniciando PTU sweep")
         # Loop: vuelve a iniciar el ciclo PTU
+        #self._clear_accumulated_map()
+        #fut = self._clear_cli.call_async(Empty.Request())
+        #rclpy.spin_until_future_complete(self, fut, timeout_sec=10.0)
+
+        self._bunker_pose_id += 1
         self.start_cycle()
+
+    #def _clear_accumulated_map(self):
+    #    if not self._clear_cli.wait_for_service(timeout_sec=1.0):
+    #        self.get_logger().warn("Servicio clear_map no disponible")
+    #        return
+    #    req = Empty.Request()
+    #    fut = self._clear_cli.call_async(req)
+    #    def _on_done(f):
+    #        if f.exception() is None:
+    #            self.get_logger().info("Mapa acumulado limpiado (clear_map).")
+    #        else:
+    #            self.get_logger().error(f"Fallo clear_map: {f.exception()!r}")
+    #    fut.add_done_callback(_on_done)
 
 
 def main(args=None):

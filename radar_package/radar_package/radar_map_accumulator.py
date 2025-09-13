@@ -34,11 +34,11 @@ class RadarMapAccumulator(Node):
         super().__init__('radar_map_accumulator')
 
         # ---------------- Parámetros ----------------
-        self.declare_parameter('fixed_frame', 'base_link')           # frame destino para acumular
+        self.declare_parameter('fixed_frame', 'radar_sensor')           # frame destino para acumular
         #self.declare_parameter('history_secs', 30.0)           # ventana temporal (seg) para conservar puntos (0 = infinito)
         #self.declare_parameter('voxel_leaf', 0.10)             # tamaño de voxel (m); 0 o <0 desactiva
         #self.declare_parameter('max_points', 300000)           # límite duro de puntos
-        self.declare_parameter('publish_rate_hz', 10.0)         # frecuencia de publicación del acumulado
+        self.declare_parameter('publish_rate_hz', 5.0)         # frecuencia de publicación del acumulado
 
         p = self.get_parameter
         self.fixed_frame   = p('fixed_frame').value
@@ -59,17 +59,24 @@ class RadarMapAccumulator(Node):
         # lanza un hilo separado que procesa los mensajes de TF, así el buffer se va actualizando en paralelo aunque tu nodo esté ocupado en otra cosa
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self, spin_thread=True)
 
+        # --------------- Almacenamiento por bunker_pose_id ---------------
+        # pose_maps: { pose_id: {"pts": float32[N,3], "ts": float64[N]} }
+        self.pose_maps = {}
+        # pose activo (último visto). Hasta recibir algo, None.
+        self.active_pose_id = None
+
         # --------------- Almacenamiento ---------------
         # guardamos puntos como float32 y timestamps en float64 (epoch)
-        self._pts = np.empty((0, 3), dtype=np.float32)
-        self._ts  = np.empty((0,),   dtype=np.float64)
+        #self._pts = np.empty((0, 3), dtype=np.float32)
+        #self._ts  = np.empty((0,),   dtype=np.float64)
 
         # --------------- Timer de publicación ---------------
         period = 1.0 / max(1e-3, self.pub_rate_hz)
         self.timer = self.create_timer(period, self.publish_accumulated)
 
-        # --------------- Servicio para limpiar ---------------
-        self.srv_clear = self.create_service(Empty, 'clear_map', self.srv_clear_cb)
+        # --------------- Servicios ---------------
+        #self.srv_clear_current = self.create_service(Empty, 'clear_map', self.srv_clear_current_cb)
+        #self.srv_clear_all     = self.create_service(Empty, 'clear_all_maps', self.srv_clear_all_cb)
 
         #self.get_logger().info(
         #    f"RadarMapAccumulator escuchando {self.input_topic} → frame fijo '{self.fixed_frame}', "
@@ -101,64 +108,83 @@ class RadarMapAccumulator(Node):
         T[1, 3] = t.y
         T[2, 3] = t.z
         return T
+    
+    def _ensure_pose_slot(self, pose_id: int):
+        if pose_id not in self.pose_maps:
+            self.pose_maps[pose_id] = {
+                "pts": np.empty((0, 3), dtype=np.float32),
+                "ts":  np.empty((0,),   dtype=np.float64),
+            }
 
     # ---------- Callback de puntos entrantes ----------
     def cb_points(self, msg: RadarCartesian):
+        # Validación mínima
+        if len(msg.x) == 0:
+            return
+        
+        pose_id = int(msg.bunker_pose_id)
+
+        if self.active_pose_id is None or pose_id != self.active_pose_id:
+            prev = self.active_pose_id
+            self.active_pose_id = pose_id
+            self._ensure_pose_slot(pose_id)
+            self.get_logger().info(
+                f"Cambio de bunker_pose_id {prev} → {pose_id}. "
+                f"Acumulando y publicando ahora el sub-mapa de pose {pose_id}."
+            )
+
         # puntos de entrada
         x = np.asarray(msg.x, dtype=np.float32)
         y = np.asarray(msg.y, dtype=np.float32)
         z = np.asarray(msg.z, dtype=np.float32)
-
-        if x.size == 0:
-            return
-
         pts = np.stack([x, y, z], axis=1) # shape (N,3)
 
         # Obtener transform msg.frame al fixed_frame al tiempo del mensaje
         src_frame = msg.header.frame_id
         stamp = rclpy.time.Time(seconds=msg.header.stamp.sec, nanoseconds=msg.header.stamp.nanosec)
 
+        if src_frame == self.fixed_frame:
+            pts_tf = pts.astype(np.float32)
         # tf cada 10hz
         # pide a TF2 la transformación entre dos frames de referencia en un momento concreto
         # frame destino map odom -> después de este paso, todos los puntos quedarán expresados en este frame
         # desde el frame de origen radar_sensor, en verdad es desde el ptu
         # Timeout: cuánto esperar a que el transform aparezca en el buffer de TF2
         # devuelve un TransformStamped
-        try:
-            tf = self.tf_buffer.lookup_transform(
-                self.fixed_frame,     # target
-                src_frame,            # source
-                stamp,                # at time
-                rclpy.duration.Duration(seconds=0.2) # timeout
-            )
-        except Exception as e:
-            # Si no hay TF puntual, intenta el último disponible (0)
-            self.get_logger().warn(f"No TF {src_frame}->{self.fixed_frame} @ {stamp.nanoseconds}ns: {e!r}. Intento latest...")
+        else:
             try:
-                tf = self.tf_buffer.lookup_transform(self.fixed_frame, src_frame, rclpy.time.Time())
-            except Exception as e2:
-                self.get_logger().error(f"Sin TF disponible {src_frame}->{self.fixed_frame}: {e2!r}")
-                return
+                tf = self.tf_buffer.lookup_transform(
+                    self.fixed_frame,     # target
+                    src_frame,            # source
+                    stamp,                # at time
+                    rclpy.duration.Duration(seconds=0.2) # timeout
+                )
+            except Exception as e:
+                # Si no hay TF puntual, intenta el último disponible (0)
+                self.get_logger().warn(f"No TF {src_frame}->{self.fixed_frame} @ {stamp.nanoseconds}ns: {e!r}. Intento latest...")
+                try:
+                    tf = self.tf_buffer.lookup_transform(self.fixed_frame, src_frame, rclpy.time.Time())
+                except Exception as e2:
+                    self.get_logger().error(f"Sin TF disponible {src_frame}->{self.fixed_frame}: {e2!r}")
+                    return
 
-        # aplicar transform
-        T = self.transform_to_mat44(tf)
-        # a los puntos de entrada se les concatena una columna de 1s
-        # eso permite usar la matriz homogénea T para transformar rotación + traslación en una sola operación.
-        pts_h = np.concatenate([pts, np.ones((pts.shape[0], 1), dtype=np.float32)], axis=1) # Nx4
-        # se multiplica la matriz de rotacion por todos los puntos homogeneos resultando tambien homogeneo
-        # se hace la traspuesta para obtener nuevamente (N, 4)
-        # se obtienen las 3 primeras columnas y asegura el tipo de dato
-        pts_tf = (T @ pts_h.T).T[:, :3].astype(np.float32)
+            # aplicar transform
+            T = self.transform_to_mat44(tf)
+            # a los puntos de entrada se les concatena una columna de 1s
+            # eso permite usar la matriz homogénea T para transformar rotación + traslación en una sola operación.
+            pts_h = np.concatenate([pts, np.ones((pts.shape[0], 1), dtype=np.float32)], axis=1) # Nx4
+            # se multiplica la matriz de rotacion por todos los puntos homogeneos resultando tambien homogeneo
+            # se hace la traspuesta para obtener nuevamente (N, 4)
+            # se obtienen las 3 primeras columnas y asegura el tipo de dato
+            pts_tf = (T @ pts_h.T).T[:, :3].astype(np.float32)
 
         # guardar puntos y timestamp
         stamp_sec = msg.header.stamp.sec + 1e-9 * msg.header.stamp.nanosec
-        self._pts = np.vstack([self._pts, pts_tf]) # apilacion de puntos
+        slot = self.pose_maps[pose_id]
+        slot["pts"] = np.vstack([slot["pts"], pts_tf]) # apilacion de puntos
         # guarda el timestamp de captura de los datos del sensor
         # np.full crea un vector del mismo tamaño que la cantidad de puntos, todos con el mismo timestamp
-        self._ts  = np.concatenate([self._ts, np.full(pts_tf.shape[0], stamp_sec, dtype=np.float64)])
-        
-        # 
-        #self.compact()
+        slot["ts"]  = np.concatenate([slot["ts"], np.full(pts_tf.shape[0], stamp_sec, dtype=np.float64)])
 
     # ---------- Compactación: ventana de tiempo, tope de puntos, voxel ----------
     #def compact(self):
@@ -205,25 +231,33 @@ class RadarMapAccumulator(Node):
 
     # ---------- Publicación periódica del acumulado ----------
     def publish_accumulated(self):
-        if self._pts.shape[0] == 0:
+        pose_id = self.active_pose_id
+        if pose_id is None:
+            return
+        
+        slot = self.pose_maps.get(pose_id, None)
+
+        if slot is None or slot["pts"].shape[0] == 0:
             return
 
         # Header en el frame fijo con tiempo actual
         hdr = Header() # crea un header 
-        now = self.get_clock().now().to_msg()
-        hdr.stamp = now # tiempo actual del reloj del nodo
+        hdr.stamp = self.get_clock().now().to_msg() # tiempo actual del reloj del nodo
         hdr.frame_id = self.fixed_frame # frame fijo al que se transforman todos los puntos
 
         # publicar RadarCartesian acumulado
         msg_rc = RadarCartesian()
         msg_rc.header = hdr
-        msg_rc.x = self._pts[:, 0].tolist()
-        msg_rc.y = self._pts[:, 1].tolist()
-        msg_rc.z = self._pts[:, 2].tolist()
+        pts = slot["pts"]
+        msg_rc.x = pts[:, 0].tolist()
+        msg_rc.y = pts[:, 1].tolist()
+        msg_rc.z = pts[:, 2].tolist()
+
+        msg_rc.bunker_pose_id = int(pose_id)
 
          # construir lista de Time por punto
         stamps = []
-        for ts in self._ts:
+        for ts in slot["ts"]: 
             t = TimeMsg()
             t.sec = int(ts)
             t.nanosec = int((ts - int(ts)) * 1e9)
@@ -241,11 +275,21 @@ class RadarMapAccumulator(Node):
         #self.pub_pc.publish(pc2_msg)
 
     # ---------- Servicio para limpiar ----------
-    def srv_clear_cb(self, req, res):
-        self._pts = np.empty((0, 3), dtype=np.float32)
-        self._ts  = np.empty((0,),   dtype=np.float64)
-        self.get_logger().info("Mapa acumulado limpiado.")
-        return res
+    #def srv_clear_current_cb(self, req, res):
+    #    if self.active_pose_id is None or self.active_pose_id not in self.pose_maps:
+    #        self.get_logger().info("No hay sub-mapa activo para limpiar.")
+    #        return res
+    #    pose_id = self.active_pose_id
+    #    self.pose_maps[pose_id]["pts"] = np.empty((0, 3), dtype=np.float32)
+    #    self.pose_maps[pose_id]["ts"]  = np.empty((0,),   dtype=np.float64)
+    #    self.get_logger().info(f"Sub-mapa del bunker_pose_id {pose_id} limpiado.")
+    #    return res
+    #
+    #def srv_clear_all_cb(self, req, res):
+    #    self.pose_maps.clear()
+    #    self.active_pose_id = None
+    #    self.get_logger().info("Todos los sub-mapas (por bunker_pose_id) fueron limpiados.")
+    #    return res
 
 
 def main(args=None):

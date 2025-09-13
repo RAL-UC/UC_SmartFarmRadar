@@ -75,7 +75,7 @@ class PtuRoutineNode(Node):
 
         self.query_period = 1 # s entre consultas 'pp'
         self.command_resend_period = 2 # reenvío de setpoint mientras consulto
-        self.query_timeout_s = 30.0 # timeout total para confirmar que se llego a la posicion objetivo
+        self.query_timeout_s = 60.0 # timeout total para confirmar que se llego a la posicion objetivo
         self.tolerance_steps = 0 # tolerancia de coincidencia en pasos
 
         self._pan_re = re.compile(r'Current\s+Pan\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
