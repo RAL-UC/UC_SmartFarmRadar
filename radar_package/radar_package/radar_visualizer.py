@@ -194,19 +194,23 @@ class RadarVisualizer(Node):
         #arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
         #self.get_logger().info(f"mat.dtype {msg.data_real}")
 
-        n_steering_angle, n_bins = [msg.rows, msg.cols]
+        try:
+            np_dtype = np.dtype(msg.dtype)
+        except Exception:
+            np_dtype = np.float64
+        rows, cols = [msg.rows, msg.cols]
+
         #mat = arr.reshape((n_steering_angle, n_bins)) # arreglo matricial (n_steering_angle, n_bins)
-        data_real = np.array(msg.data_real,  dtype=msg.dtype)
-        data_real = data_real.reshape((n_steering_angle, n_bins))
-        data_imag = np.array(msg.data_imag,  dtype=msg.dtype)
-        data_imag = data_imag.reshape((n_steering_angle, n_bins))
+        data_real = np.asarray(msg.data_real, dtype=np_dtype).reshape((rows, cols))
+        data_imag = np.asarray(msg.data_imag, dtype=np_dtype).reshape((rows, cols))
+        mat = data_real + 1j * data_imag
 
 
         mat = data_real + 1j*data_imag
         #mat = mat.reshape((n_steering_angle, n_bins))
-        mat[:,:GOOD_RAMP_SAMPLES] = mat[:,:GOOD_RAMP_SAMPLES] * self.win_funct
-        sp = np.fft.fftshift(np.abs(np.fft.fft(mat, axis=1)), axes=1)
-        s_mag = sp / self.sum_win_funct
+        mat[:,:GOOD_RAMP_SAMPLES] *= self.win_funct[None, :]
+        sp = np.fft.fftshift(np.fft.fft(mat, axis=1), axes=1)
+        s_mag = np.abs(sp) / self.sum_win_funct
         s_mag = np.maximum(s_mag, 10 ** (-15))
         mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
         
@@ -228,7 +232,7 @@ class RadarVisualizer(Node):
         #        )
 
         # Construir eje de frecuencia completo y corrimiento
-        freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, n_bins, endpoint=False)
+        freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, cols, endpoint=False)
         distance = self.freq_to_distance(freq)
         # filtrar solo distancias >= 0
         self.valid_indices = np.where(distance >= 0)[0]

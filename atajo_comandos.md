@@ -100,3 +100,6 @@ source install/local_setup.bash
 
 ROBOT_PKG=$(ros2 pkg prefix robot_description)
 
+
+modulos de red usb
+sudo apt install linux-modules-extra-$(uname -r)

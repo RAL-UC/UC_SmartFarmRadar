@@ -35,7 +35,7 @@ class RadarSphericalToCartesian(Node):
         # Recursos: medición de fondo
         try:
             pkg_share = get_package_share_directory('radar_package')
-            self.path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo.npy')
+            self.path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo_centro.npy')
             self.medicion_fondo = np.load(self.path_medicion_fondo) # shape esperada (rows, cols) o (1, cols)
             self.get_logger().info(f"Cargada medición de fondo desde: {self.path_medicion_fondo}")
         except Exception as e:
@@ -79,7 +79,7 @@ class RadarSphericalToCartesian(Node):
 
         # construir vector de theta_beam
         self.theta_beam_deg = np.arange(self.angle_min_radar_beam, self.angle_max_radar_beam + 1, self.angle_step_radar_beam)
-        self.get_logger().info(f"theta_beam_deg: {self.theta_beam_deg}")
+        #self.get_logger().info(f"theta_beam_deg: {self.theta_beam_deg}")
 
         self.get_logger().info("Nodo listo: radar_spherical_to_cartesian a /radar_cartesian")
 
@@ -104,18 +104,17 @@ class RadarSphericalToCartesian(Node):
         except Exception:
             np_dtype = np.float64
 
-        n_rows, n_cols = int(msg.rows), int(msg.cols)
+        rows, cols = int(msg.rows), int(msg.cols)
         
-        data_real = np.array(msg.data_real,  dtype=msg.dtype)
-        data_real = data_real.reshape((n_rows, n_cols))
-        data_imag = np.array(msg.data_imag,  dtype=msg.dtype)
-        data_imag = data_imag.reshape((n_rows, n_cols))
+        data_real = np.asarray(msg.data_real, dtype=np_dtype).reshape((rows, cols))
+        data_imag = np.asarray(msg.data_imag, dtype=np_dtype).reshape((rows, cols))
+        mat = data_real + 1j * data_imag
 
         mat = data_real + 1j*data_imag
         #mat = mat.reshape((n_rows, n_cols))
-        mat[:,:GOOD_RAMP_SAMPLES] = mat[:,:GOOD_RAMP_SAMPLES] * self.win_funct
-        sp = np.fft.fftshift(np.abs(np.fft.fft(mat, axis=1)), axes=1)
-        s_mag = sp / self.sum_win_funct
+        mat[:,:GOOD_RAMP_SAMPLES] *=  self.win_funct[None, :]
+        sp = np.fft.fftshift(np.fft.fft(mat, axis=1), axes=1)
+        s_mag = np.abs(sp) / self.sum_win_funct
         s_mag = np.maximum(s_mag, 10 ** (-15))
         mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
 
@@ -140,7 +139,7 @@ class RadarSphericalToCartesian(Node):
         #        self.get_logger().warn(f"Error restando medición de fondo: {e!r}")
 
         # 3) Eje de frecuencia y r (distancia)
-        freq = np.linspace(-SAMPLE_RATE/2.0, SAMPLE_RATE/2.0, n_cols, endpoint=False)
+        freq = np.linspace(-SAMPLE_RATE/2.0, SAMPLE_RATE/2.0, cols, endpoint=False)
         r_all = self.freq_to_distance(freq)  # metros
 
         # 4) Filtrado por rango válido (>= 0 y opcionalmente <= max_range)
@@ -161,7 +160,7 @@ class RadarSphericalToCartesian(Node):
         det_angle_idx = []
         det_range_idx = []
 
-        for i in range(n_rows):
+        for i in range(rows):
             mag = mat[i, :].astype(np.float64, copy=False)
 
             # Normalización fila a fila
@@ -200,7 +199,7 @@ class RadarSphericalToCartesian(Node):
         pan_deg  = msg.pan_deg
         tilt_deg = msg.tilt_deg
 
-        theta_abs_deg = pan_deg + self.theta_beam_deg[det_angle_idx]
+        theta_abs_deg = - pan_deg + self.theta_beam_deg[det_angle_idx]
         phi_abs_deg = np.full_like(theta_abs_deg, tilt_deg, dtype=np.float64)
 
         theta_abs = np.deg2rad(theta_abs_deg)
@@ -235,6 +234,7 @@ class RadarSphericalToCartesian(Node):
         out.y = y.astype(np.float32).tolist()
         out.z = z.astype(np.float32).tolist()
 
+        out.bunker_pose_id = msg.bunker_pose_id
         # Si tienes un campo opcional de intensidad y quieres llenarlo:
         # intens = mat[det_angle_idx, det_range_idx]
         # if hasattr(out, 'intensity'):

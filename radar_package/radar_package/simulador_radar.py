@@ -12,7 +12,7 @@ from radar_msg.msg import RadarData
 from radar_msg.action import Beamform
 
 REPO_ROOT = Path.cwd() / "UC_SmartFarmRadar"
-DEFAULT_OUTPUT = str(REPO_ROOT / "datos" / "medicion_fondo.npy")
+DEFAULT_OUTPUT = str(REPO_ROOT / "datos" / "medicion_fondo_centro.npy")
 
 class RadarSimServer(Node):
     def __init__(self):
@@ -63,7 +63,8 @@ class RadarSimServer(Node):
         msg.rows = self.rows
         msg.cols = self.cols
         msg.dtype = self.dtype_str
-        msg.data = self.data_flat
+        msg.data_real = self.data_flat
+        msg.data_imag = self.data_flat
 
         # Completar acción
         goal_handle.succeed()

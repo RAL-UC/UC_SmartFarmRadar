@@ -45,8 +45,11 @@ class PtuRadarScan(Node):
         #self.pan_list = [0]
         #self.pan_list = [0, 0, 0, 0, 0]
         self.pan_list = [90, 75, 60, 45, 30, 15, 0, -15, -30, -45, -60, -75, -90]
-        #self.tilt_list = [-20, -15, -10, -5, 0]
-        self.tilt_list = [0] * len(self.pan_list) # tilt fijo 0, mismo largo que pan_list
+        #self.pan_list = [90, 60, 30, 0, -30, -60, -90]
+        #self.tilt_list = [-20, -15, -10, -5, 0, 5, 10, 15, 20]
+        self.tilt_list = [-20, -15, -10, -5, 0]
+        #self.tilt_list = [0]
+        #self.tilt_list = [0] * len(self.pan_list) # tilt fijo 0, mismo largo que pan_list
         if len(self.pan_list) == 0:
             raise RuntimeError("El rango de ángulos es vacío. Revisa angle_min/angle_max/angle_step.")
 
@@ -63,6 +66,8 @@ class PtuRadarScan(Node):
         # Estado
         self.is_running = False
         self._run_lock = threading.Lock()
+
+        self.bunker_pose_id = -1
 
         self.get_logger().info(
             f"Listo. Puntos={len(self.pan_list)} | pan_list={self.pan_list} | tilt_list={self.tilt_list} | "
@@ -125,6 +130,7 @@ class PtuRadarScan(Node):
             if self.is_running:
                 self.get_logger().warn("Ya hay una rutina en ejecución; ignoro nuevo trigger.")
                 return
+            self.bunker_pose_id += 1
             self.is_running = True
 
         # Ejecutar rutina en hilo aparte
@@ -145,57 +151,69 @@ class PtuRadarScan(Node):
 
             #rows = []
             cols_expected = None
-            for i, (pan, tilt) in enumerate(zip(self.pan_list, self.tilt_list), start=1):
-                tag = f"[{i}/{len(self.pan_list)}]"
 
-                # 1) PTU
-                self.get_logger().info(f"{tag} PTU pan={pan}°, tilt={tilt}°")
-                ptu_goal = PtuSweep.Goal()
-                ptu_goal.pan_deg = int(pan)
-                ptu_goal.tilt_deg = int(tilt)
-                ok, ptu_res, err = self._send_goal_wait_result(self.ptu_client, ptu_goal, 'ptu_sweep')
-                if not ok or (hasattr(ptu_res, 'success') and not ptu_res.success):
-                    msg = getattr(ptu_res, 'message', '')
-                    self.get_logger().error(f"{tag} Falló PTU pan={pan}°, tilt={tilt}°. {err or msg}")
-                    return
+            num_pan  = len(self.pan_list)
+            num_tilt = len(self.tilt_list)
+            total    = num_pan * num_tilt
+            step     = 0
 
-                # 2) Radar
-                self.get_logger().info(f"{tag} Radar beamform pan={pan}°, tilt={tilt}°")
-                rb_goal = Beamform.Goal()
-                rb_goal.pan_deg = int(pan)
-                rb_goal.tilt_deg = int(tilt)
-                ok, rb_res, err = self._send_goal_wait_result(self.radar_client, rb_goal, 'radar_beamform')
-                if not ok or (hasattr(rb_res, 'success') and not rb_res.success):
-                    msg = getattr(rb_res, 'message', '')
-                    self.get_logger().error(f"{tag} Falló beamform pan={pan}°, tilt={tilt}°. {err or msg}")
-                    return
+            for ip, tilt in enumerate(self.tilt_list, start=1):
+                for it, pan in enumerate(self.pan_list, start=1):
+                    step += 1
+                    tag = f"[{step}/{total} | pan {ip}/{num_pan}, tilt {it}/{num_tilt}]"
 
-                if not hasattr(rb_res, 'radar_data'):
-                    self.get_logger().error("Beamform.Result no trae 'radar_data'. Revisa tu Beamform.action.")
-                    return
+                    # 1) PTU
+                    self.get_logger().info(f"{tag} PTU pan={pan}°, tilt={tilt}°")
+                    ptu_goal = PtuSweep.Goal()
+                    ptu_goal.pan_deg = int(pan)
+                    ptu_goal.tilt_deg = int(tilt)
+                    ok, ptu_res, err = self._send_goal_wait_result(self.ptu_client, ptu_goal, 'ptu_sweep')
+                    if not ok or (hasattr(ptu_res, 'success') and not ptu_res.success):
+                        msg = getattr(ptu_res, 'message', '')
+                        self.get_logger().error(f"{tag} Falló PTU pan={pan}°, tilt={tilt}°. {err or msg}")
+                        return
 
-                rd: RadarData = rb_res.radar_data
+                    # 2) Radar
+                    self.get_logger().info(f"{tag} Radar beamform pan={pan}°, tilt={tilt}°")
+                    rb_goal = Beamform.Goal()
+                    rb_goal.pan_deg = int(pan)
+                    rb_goal.tilt_deg = int(tilt)
+                    ok, rb_res, err = self._send_goal_wait_result(self.radar_client, rb_goal, 'radar_beamform')
+                    if not ok or (hasattr(rb_res, 'success') and not rb_res.success):
+                        msg = getattr(rb_res, 'message', '')
+                        self.get_logger().error(f"{tag} Falló beamform pan={pan}°, tilt={tilt}°. {err or msg}")
+                        return
 
-                if cols_expected is None:
-                    cols_expected = rd.cols
-                elif rd.cols != cols_expected:
-                    self.get_logger().error(f"{tag} Inconsistencia: cols {cols_expected} → {rd.cols}.")
-                    return
+                    if not hasattr(rb_res, 'radar_data'):
+                        self.get_logger().error("Beamform.Result no trae 'radar_data'. Revisa tu Beamform.action.")
+                        return
+
+                    rd: RadarData = rb_res.radar_data
+
+                    if cols_expected is None:
+                        cols_expected = rd.cols
+                    elif rd.cols != cols_expected:
+                        self.get_logger().error(f"{tag} Inconsistencia: cols {cols_expected} → {rd.cols}.")
+                        return
                 
-                try:
-                    np_dtype = np.dtype(rd.dtype)   # toma el tipo desde el string del mensaje
-                except Exception:
-                    np_dtype = np.float64           # respaldo simple
+                    rd.bunker_pose_id = int(self.bunker_pose_id)
+                    #rd.pan_deg = int(pan)
+                    #rd.tilt_deg = int(tilt)
 
-                #rd.header = Header()
-                #rd.header.stamp = self.get_clock().now().to_msg()
-                #rd.header.frame_id = 'radar_sensor'
-                #rd.pan_deg = float(pan)
-                #rd.tilt_deg = float(tilt)
+                    try:
+                        np_dtype = np.dtype(rd.dtype)   # toma el tipo desde el string del mensaje
+                    except Exception:
+                        np_dtype = np.float64           # respaldo simple
+
+                    #rd.header = Header()
+                    #rd.header.stamp = self.get_clock().now().to_msg()
+                    #rd.header.frame_id = 'radar_sensor'
+                    #rd.pan_deg = float(pan)
+                    #rd.tilt_deg = float(tilt)
 
 
-                self.pub_final.publish(rd)
-                self.get_logger().info(f"{tag} Publicado RadarData ({rd.rows}x{rd.cols}) en '{self.publish_topic}'")
+                    self.pub_final.publish(rd)
+                    self.get_logger().info(f"{tag} Publicado RadarData ({rd.rows}x{rd.cols}) en '{self.publish_topic}'")
 
                 
                 #row = np.asarray(rd.data, dtype=np_dtype).reshape((rd.rows, rd.cols))
