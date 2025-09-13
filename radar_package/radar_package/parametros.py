@@ -51,8 +51,8 @@ ANGLE0 = -90
 
 # radar: considerar patron de transmision de antena transmisora, diagrama polar con 24° de apertura caida a -3db
 FOV = 100 # 160
-ANGLE_MIN_RADAR_BEAM = -50 # grados -80
-ANGLE_MAX_RADAR_BEAM = 50 # grados 80
+ANGLE_MIN_RADAR_BEAM = -80 # grados -80
+ANGLE_MAX_RADAR_BEAM = 80 # grados 80
 ANGLE_STEP_RADAR_BEAM = 1 # grados
 
 # PTU

@@ -22,7 +22,7 @@ def generate_launch_description():
             name='ptu_node',
             output='screen',
             parameters=[{
-                'serial_port': '/dev/ttyUSB0'
+                'serial_port': '/dev/ttyUSB1' # para pc bunker debe estar en ttyUSB1, pc host ttyUSB0
             }]
         ),
         Node(
