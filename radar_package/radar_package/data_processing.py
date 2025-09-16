@@ -35,7 +35,7 @@ class RadarSphericalToCartesian(Node):
         # Recursos: medición de fondo
         try:
             pkg_share = get_package_share_directory('radar_package')
-            self.path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo_centro.npy')
+            self.path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo_centro2.npy')
             self.medicion_fondo = np.load(self.path_medicion_fondo) # shape esperada (rows, cols) o (1, cols)
             self.get_logger().info(f"Cargada medición de fondo desde: {self.path_medicion_fondo}")
         except Exception as e:
@@ -110,8 +110,6 @@ class RadarSphericalToCartesian(Node):
         data_imag = np.asarray(msg.data_imag, dtype=np_dtype).reshape((rows, cols))
         mat = data_real + 1j * data_imag
 
-        mat = data_real + 1j*data_imag
-        #mat = mat.reshape((n_rows, n_cols))
         mat[:,:GOOD_RAMP_SAMPLES] *=  self.win_funct[None, :]
         sp = np.fft.fftshift(np.fft.fft(mat, axis=1), axes=1)
         s_mag = np.abs(sp) / self.sum_win_funct
@@ -125,18 +123,18 @@ class RadarSphericalToCartesian(Node):
         #mat = data.reshape((n_rows, n_cols))
 
         # 2) Restar medición de fondo si está disponible
-        #if self.medicion_fondo is not None:
-        #    try:
-        #        if self.medicion_fondo.shape == mat.shape:
-        #            mat = mat - self.medicion_fondo
-        #        elif self.medicion_fondo.ndim == 2 and self.medicion_fondo.shape[0] == 1 and self.medicion_fondo.shape[1] == n_cols:
-        #            mat = mat - self.medicion_fondo[0, :]
-        #        elif self.medicion_fondo.ndim == 1 and self.medicion_fondo.shape[0] == n_cols:
-        #            mat = mat - self.medicion_fondo
-        #        else:
-        #            self.get_logger().warn(f"medicion_fondo shape {self.medicion_fondo.shape} no calza; se omite resta.")
-        #    except Exception as e:
-        #        self.get_logger().warn(f"Error restando medición de fondo: {e!r}")
+        if self.medicion_fondo is not None:
+            try:
+                if self.medicion_fondo.shape == mat.shape:
+                    mat = mat - self.medicion_fondo
+                elif self.medicion_fondo.ndim == 2 and self.medicion_fondo.shape[0] == 1 and self.medicion_fondo.shape[1] == cols:
+                    mat = mat - self.medicion_fondo[0, :]
+                elif self.medicion_fondo.ndim == 1 and self.medicion_fondo.shape[0] == cols:
+                    mat = mat - self.medicion_fondo
+                else:
+                    self.get_logger().warn(f"medicion_fondo shape {self.medicion_fondo.shape} no calza; se omite resta.")
+            except Exception as e:
+                self.get_logger().warn(f"Error restando medición de fondo: {e!r}")
 
         # 3) Eje de frecuencia y r (distancia)
         freq = np.linspace(-SAMPLE_RATE/2.0, SAMPLE_RATE/2.0, cols, endpoint=False)

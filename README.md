@@ -137,12 +137,15 @@ ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/me
 ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_fondo_cielo
 ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_experimental
 ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_experimental_taller
+ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/arbol
 
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo/medicion_fondo_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo_centro/medicion_fondo_centro_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo_cielo/medicion_fondo_cielo_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental/medicion_experimental_0.db3
 ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental_taller/medicion_experimental_taller_0.db3
+ros2 bag play --loop UC_SmartFarmRadar/datos/arbol/arbol_0.db3
+ros2 bag play --loop UC_SmartFarmRadar/datos/experimento_radar_ultimo4/experimento_radar_ultimo4_0.db3
 ```
 
 ```bash

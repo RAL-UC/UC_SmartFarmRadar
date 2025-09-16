@@ -67,13 +67,13 @@ ANGLE_STEP_PTU_TILT = 5 # grados
 GLOBAL_ANGLES = -2*(ANGLE0+ANGLE_MIN_RADAR_BEAM) + 1 # 80 apertura de steering angle + 90 de pantilt dan una apertura de 170 hacia cada lado = 340 + 1
 
 # CFAR
-CFAR_GUARD = 20
-CFAR_REF = 50
-CFAR_BIAS = 12
+CFAR_GUARD = 15
+CFAR_REF = 45
+CFAR_BIAS = 10
 CFAR_METHOD = "average"
 
 # Filtro de distancia
 MIN_RANGE_M = 0
-MAX_RANGE_M = 20
+MAX_RANGE_M = 10
 
-REPEAT_CAPTURE = -1
+REPEAT_CAPTURE = 20

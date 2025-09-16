@@ -15,7 +15,7 @@ from ament_index_python.packages import get_package_share_directory # recursos
 
 # recursos
 pkg_share = get_package_share_directory('radar_package')
-path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo_centro.npy')
+path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo_centro2.npy')
 
 class RadarVisualizer(Node):
     def __init__(self):
@@ -73,7 +73,7 @@ class RadarVisualizer(Node):
         self.line_noise.set_visible(False)
 
         self.ax.set_xlabel("Range [m]")
-        self.ax.set_ylabel("MinMax Normalized Magnitude") # normalizada min-max
+        self.ax.set_ylabel("Magnitude (dB)") # normalizada min-max
 
         # eje secundario de rango en la parte superior
         self.secax = self.ax.secondary_xaxis('top', functions=(self.distance_to_freq, self.freq_to_distance))
@@ -86,17 +86,17 @@ class RadarVisualizer(Node):
 
         # CONTROLES INTERACTIVOS
         # Slider para num_guard_cells
-        ax_guard = plt.axes([0.02, 0.30, 0.015, 0.60])
-        self.sld_guard = Slider(ax_guard, 'Guard', 1, 30, valinit=20, valstep=1, orientation='vertical')
+        ax_guard = plt.axes([0.015, 0.30, 0.015, 0.60])
+        self.sld_guard = Slider(ax_guard, "Guard\n(N)", 1, 30, valinit=CFAR_GUARD, valstep=1, orientation='vertical')
 
-        ax_ref = plt.axes([0.05, 0.30, 0.015, 0.60])
-        self.sld_ref = Slider(ax_ref, 'Ref', 1, 70, valinit=50, valstep=1, orientation='vertical')
+        ax_ref = plt.axes([0.045, 0.30, 0.015, 0.60])
+        self.sld_ref = Slider(ax_ref, "Ref\n(N)", 1, 70, valinit=CFAR_REF, valstep=1, orientation='vertical')
 
-        ax_bias = plt.axes([0.08, 0.30, 0.015, 0.60])
-        self.sld_bias = Slider(ax_bias, 'Bias', 0.0, 30.0, valinit=12, valstep=1, orientation='vertical')
+        ax_bias = plt.axes([0.075, 0.30, 0.015, 0.60])
+        self.sld_bias = Slider(ax_bias, "Bias\n(dB)", 0.0, 30.0, valinit=CFAR_BIAS, valstep=1, orientation='vertical')
 
         # Slider para fa_rate (solo para método false_alarm)
-        ax_fa = plt.axes([0.11, 0.30, 0.015, 0.60]) 
+        ax_fa = plt.axes([0.105, 0.30, 0.015, 0.60]) 
         self.sld_fa = Slider(ax_fa, 'FA\nRate', 0.0, 2.0, valinit=0.5, valstep=0.01, orientation='vertical')
         self.sld_fa.ax.set_visible(False)
 
@@ -119,8 +119,19 @@ class RadarVisualizer(Node):
         plt.show(block=False)
         self.create_timer(0.05, lambda: plt.pause(0.001))
 
+    def _set_fa_visible(self, visible: bool):
+        self.sld_fa.ax.set_visible(bool(visible))
+        if not visible:
+            # si lo ocultas, también oculta la línea de ruido (por coherencia)
+            self.line_noise.set_visible(False)
+        self.fig.canvas.draw_idle()
+
     def update_display(self, angle_val: int):
         """Dibuja FFT + CFAR solamente en los índices válidos"""
+        if self.filtered_data is None or self.freq is None or self.filtered_data.size == 0:
+            use_fa = (self.radio_method.value_selected == "false_alarm")
+            self._set_fa_visible(use_fa)
+            return
         idx = self.ang_to_idx(angle_val)
         mag = self.filtered_data[idx, :]
 
@@ -150,13 +161,13 @@ class RadarVisualizer(Node):
             noise_line = np.ones_like(mag) * noise_variance
             self.line_noise.set_data(self.freq, noise_line)
             self.line_noise.set_visible(True)
-            self.sld_fa.ax.set_visible(True)
+            self._set_fa_visible(True)
         else:
             thresh, targets = cfar(mag_ext, num_guard_cells=ng, num_ref_cells=nr, bias=b, cfar_method=m)
             thresh = self.unpad(thresh, total_ext)
             targets = np.ma.array(self.unpad(targets, total_ext), mask=self.unpad(targets.mask, total_ext))
             self.line_noise.set_visible(False)
-            self.sld_fa.ax.set_visible(False)
+            self._set_fa_visible(False) 
 
         # Forzar actualización manual de leyenda con elementos visibles
         handles, labels = [], []
@@ -217,19 +228,20 @@ class RadarVisualizer(Node):
 
         #mat = mat[:161, :]
         #self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
-        #if self.medicion_fondo is not None:
-        #    if self.medicion_fondo.shape == mat.shape:
-        #        mat = mat - self.medicion_fondo
-        #        #mat = self.medicion_fondo
-        #    elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
-        #        fondo_1x = np.array(self.medicion_fondo[80]).reshape(n_steering_angle, n_bins) # 1×N
-        #        mat = mat - fondo_1x
-        #        #mat = fondo_1x
-        #        self.get_logger().info(f"{mat.shape}")
-        #    else:
-        #        self.get_logger().warn(
-        #            f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
-        #        )
+
+        if self.medicion_fondo is not None:
+            if self.medicion_fondo.shape == mat.shape:
+                mat = mat - self.medicion_fondo
+                #mat = self.medicion_fondo
+            elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
+                fondo_1x = np.array(self.medicion_fondo[80]).reshape(rows, cols) # 1×N
+                mat = mat - fondo_1x
+                #mat = fondo_1x
+                self.get_logger().info(f"{mat.shape}")
+            else:
+                self.get_logger().warn(
+                    f"Shape fondo {self.medicion_fondo.shape} != datos {mat.shape}; omitiendo resta."
+                )
 
         # Construir eje de frecuencia completo y corrimiento
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, cols, endpoint=False)
@@ -251,6 +263,9 @@ class RadarVisualizer(Node):
         # Actualizar slider sin mover thumb
         #self.sld_angle.valmax = n_steering_angle - 1
         #self.sld_angle.ax.set_xlim(self.sld_angle.valmin, self.sld_angle.valmax)
+        has_data = self.filtered_data is not None and self.filtered_data.size > 0
+        use_fa = (self.radio_method.value_selected == "false_alarm")
+        self._set_fa_visible(has_data and use_fa)
 
         # Redibujar en la posición actual del slider
         angle_val = self.sld_angle.val

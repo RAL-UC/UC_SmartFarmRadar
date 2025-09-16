@@ -10,8 +10,8 @@ from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
 from radar_package.parametros import *
 
 # Ruta por defecto
-REPO_ROOT = Path.cwd() / "UC_SmartFarmRadar"
-DEFAULT_OUTPUT = str(REPO_ROOT / "datos" / "medicion_fondo_cielo.npy")
+REPO_ROOT = Path.cwd()
+DEFAULT_OUTPUT = str(REPO_ROOT / "UC_SmartFarmRadar" / "radar_package" / "resource" / "medicion_fondo_centro2.npy")
 
 class CerrarNode(Exception):
     """Cerrar nodo"""
@@ -51,6 +51,11 @@ class BackgroundCaptureNode(Node):
         self.count = 0
         self.shape_expected = None
 
+        self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
+        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
+        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
+        self.sum_win_funct = np.sum(self.win_funct)
+
         # Info inicial
         self.get_logger().info(
             f"Captura de {self.n_captures} mediciones de fondo"
@@ -63,14 +68,28 @@ class BackgroundCaptureNode(Node):
     def listener_callback(self, msg: RadarData):
         # mostrar header
         self.get_logger().info(f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"')
-
-        # Reconstruir matriz original [rows, cols]
         try:
-            arr = np.array(msg.data, dtype=msg.dtype)  # respetamos el dtype que llega en el mensaje
-            mat = arr.reshape((msg.rows, msg.cols))
-        except Exception as e:
-            self.get_logger().error(f"Error reconstruyendo la matriz desde /radar_data: {e}")
-            return
+            np_dtype = np.dtype(msg.dtype)
+        except Exception:
+            np_dtype = np.float64
+        rows, cols = int(msg.rows), int(msg.cols)
+        
+        data_real = np.asarray(msg.data_real, dtype=np_dtype).reshape((rows, cols))
+        data_imag = np.asarray(msg.data_imag, dtype=np_dtype).reshape((rows, cols))
+        mat = data_real + 1j * data_imag
+
+        mat[:,:GOOD_RAMP_SAMPLES] *=  self.win_funct[None, :]
+        sp = np.fft.fftshift(np.fft.fft(mat, axis=1), axes=1)
+        s_mag = np.abs(sp) / self.sum_win_funct
+        s_mag = np.maximum(s_mag, 10 ** (-15))
+        mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
+        # Reconstruir matriz original [rows, cols]
+        #try:
+        #    arr = np.array(msg.data, dtype=msg.dtype)  # respetamos el dtype que llega en el mensaje
+        #    mat = arr.reshape((msg.rows, msg.cols))
+        #except Exception as e:
+        #    self.get_logger().error(f"Error reconstruyendo la matriz desde /radar_data: {e}")
+        #    return
 
         # inicializar forma y acumulador en la primera captura
         if self.shape_expected is None:

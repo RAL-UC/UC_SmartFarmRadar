@@ -58,6 +58,9 @@ conectar a wifi asus ral, desconectar ethernet
 ssh octa@10.42.0.1
 clave 2312
 ros2 launch ral_bunker_navigation square_movement.launch.py
+ros2 launch radar_package launch.py
+ros2 run state_machine state_machine
+ros2 bag record --all -o experimento_radar_ultimo
 
 
 Para mover el bunker:
@@ -72,11 +75,9 @@ ros2 bag play <nombre_del_bag>
 ros2 topic echo /nombre_del_topico
 
 Desde MI propio PC:
-sudo scp -r octa@10.42.0.1:/home/octa/oli /home/dammr/Downloads/
-
+sudo scp -r octa@10.42.0.1:/home/octa/magister/magister_ws/experimento_radar_ultimo4 /home/dammr/Downloads/
 
 Cambiar owner:
-
 sudo chown -R dammr oli/
 
 consulta memoria
@@ -103,3 +104,16 @@ ROBOT_PKG=$(ros2 pkg prefix robot_description)
 
 modulos de red usb
 sudo apt install linux-modules-extra-$(uname -r)
+
+
+para eliminar cambios en local y hacer pull para que quede igual que el repositorio remoto
+Borra cambios en archivos versionados
+Elimina archivos/directorios no versionados
+Forzar actualización desde remoto
+```bash
+git reset --hard
+git clean -fd
+git checkout main
+git fetch origin
+git reset --hard origin/main
+```

@@ -20,6 +20,8 @@ import tf_transformations  # si no lo tienes, puedes construir la matriz a mano
 import tf2_ros
 from geometry_msgs.msg import TransformStamped
 from builtin_interfaces.msg import Time as TimeMsg
+from collections import deque
+from geometry_msgs.msg import PoseStamped
 
 class RadarMapAccumulator(Node):
     """
@@ -39,6 +41,7 @@ class RadarMapAccumulator(Node):
         #self.declare_parameter('voxel_leaf', 0.10)             # tamaño de voxel (m); 0 o <0 desactiva
         #self.declare_parameter('max_points', 300000)           # límite duro de puntos
         self.declare_parameter('publish_rate_hz', 5.0)         # frecuencia de publicación del acumulado
+        self.declare_parameter('gps_max_dt', 10.0)
 
         p = self.get_parameter
         self.fixed_frame   = p('fixed_frame').value
@@ -46,11 +49,15 @@ class RadarMapAccumulator(Node):
         #self.voxel_leaf    = float(p('voxel_leaf').value)
         #self.max_points    = int(p('max_points').value)
         self.pub_rate_hz   = float(p('publish_rate_hz').value)
+        self.gps_max_dt = float(p('gps_max_dt').value)
+
+        self.fix_buffer = deque(maxlen=2000)
 
         # --------------- Subs / Pubs ----------------
         self.sub = self.create_subscription(RadarCartesian, 'radar_cartesian', self.cb_points, 10)
         self.pub_rc = self.create_publisher(RadarCartesian, 'radar_cartesian_accum', 10)
         #self.pub_pc = self.create_publisher(PointCloud2, 'radar_cloud_accum', 10)
+        self.sub_fix_utm = self.create_subscription(PoseStamped, 'fix_utm', self.cb_fix_utm, 10)   
 
         # --------------- TF2 (buffer + listener) ---------------
         # se crea el buffer de transformaciones, mantiene hasta x segundos del historial de transformaciones
@@ -109,12 +116,50 @@ class RadarMapAccumulator(Node):
         T[2, 3] = t.z
         return T
     
+    @staticmethod
+    def _time_to_sec(stamp) -> float:
+        return float(stamp.sec) + 1e-9 * float(stamp.nanosec)
+    
     def _ensure_pose_slot(self, pose_id: int):
         if pose_id not in self.pose_maps:
             self.pose_maps[pose_id] = {
                 "pts": np.empty((0, 3), dtype=np.float32),
                 "ts":  np.empty((0,),   dtype=np.float64),
+                # --- GPS por punto ---
+                "gps_e":   np.empty((0,),   dtype=np.float32),
+                "gps_n":   np.empty((0,),   dtype=np.float32),
+                "gps_alt": np.empty((0,),   dtype=np.float32),
+                "gps_qx":   np.empty((0,),   dtype=np.float32),
+                "gps_qy":   np.empty((0,),   dtype=np.float32),
+                "gps_qz":   np.empty((0,),   dtype=np.float32),
+                "gps_qw":   np.empty((0,),   dtype=np.float32),
+                "gps_ts":  np.empty((0,),   dtype=np.float64),
+                "gps_frame": "utm_19H",   # se actualiza con la fix recibida
             }
+
+    def _push_fix(self, stamp, e, n, alt, qx, qy, qz, qw, frame_id: str):
+        self.fix_buffer.append({    
+            "ts": self._time_to_sec(stamp),
+            "e": float(e), "n": float(n), "alt": float(alt),
+            "qx": float(qx), "qy": float(qy), "qz": float(qz), "qw": float(qw),
+            "frame": frame_id or "",
+        })
+
+    def _closest_fix(self, ts: float, max_dt: float):
+        if not self.fix_buffer:
+            return None
+        arr_ts = np.fromiter((f["ts"] for f in self.fix_buffer),
+                            dtype=np.float64, count=len(self.fix_buffer))
+        idx = int(np.argmin(np.abs(arr_ts - ts)))
+        best = self.fix_buffer[idx]
+        tiempo = np.abs(best["ts"] - ts)
+        return best if tiempo <= max_dt else None
+    
+    def cb_fix_utm(self, msg: PoseStamped):
+        p = msg.pose.position
+        q = msg.pose.orientation
+        self._push_fix(msg.header.stamp, p.x, p.y, p.z, q.x, q.y, q.z, q.w, msg.header.frame_id)
+
 
     # ---------- Callback de puntos entrantes ----------
     def cb_points(self, msg: RadarCartesian):
@@ -179,12 +224,45 @@ class RadarMapAccumulator(Node):
             pts_tf = (T @ pts_h.T).T[:, :3].astype(np.float32)
 
         # guardar puntos y timestamp
-        stamp_sec = msg.header.stamp.sec + 1e-9 * msg.header.stamp.nanosec
+        stamp_sec = self._time_to_sec(msg.header.stamp)
+        #stamp_sec = msg.header.stamp.sec + 1e-9 * msg.header.stamp.nanosec
         slot = self.pose_maps[pose_id]
+        fix = self._closest_fix(stamp_sec, self.gps_max_dt)
+        if fix is None:
+            gps_e   = np.full(pts_tf.shape[0], np.nan, dtype=np.float32)
+            gps_n   = np.full(pts_tf.shape[0], np.nan, dtype=np.float32)
+            gps_alt = np.full(pts_tf.shape[0], np.nan, dtype=np.float32)
+            gps_qx  = np.full(pts_tf.shape[0], np.nan, dtype=np.float32)
+            gps_qy  = np.full(pts_tf.shape[0], np.nan, dtype=np.float32)
+            gps_qz  = np.full(pts_tf.shape[0], np.nan, dtype=np.float32)
+            gps_qw  = np.full(pts_tf.shape[0], np.nan, dtype=np.float32)
+            gps_ts  = np.full(pts_tf.shape[0], np.nan, dtype=np.float64)
+        else:
+            gps_e   = np.full(pts_tf.shape[0], fix["e"],   dtype=np.float32)
+            gps_n   = np.full(pts_tf.shape[0], fix["n"],   dtype=np.float32)
+            gps_alt = np.full(pts_tf.shape[0], fix["alt"], dtype=np.float32)
+            gps_qx  = np.full(pts_tf.shape[0], fix["qx"],  dtype=np.float32)
+            gps_qy  = np.full(pts_tf.shape[0], fix["qy"],  dtype=np.float32)
+            gps_qz  = np.full(pts_tf.shape[0], fix["qz"],  dtype=np.float32)
+            gps_qw  = np.full(pts_tf.shape[0], fix["qw"],  dtype=np.float32)
+            gps_ts  = np.full(pts_tf.shape[0], fix["ts"],  dtype=np.float64)
+            slot["gps_frame"] = fix["frame"] or slot.get("gps_frame", "")
+
+
+
         slot["pts"] = np.vstack([slot["pts"], pts_tf]) # apilacion de puntos
         # guarda el timestamp de captura de los datos del sensor
         # np.full crea un vector del mismo tamaño que la cantidad de puntos, todos con el mismo timestamp
         slot["ts"]  = np.concatenate([slot["ts"], np.full(pts_tf.shape[0], stamp_sec, dtype=np.float64)])
+        slot["gps_e"]    = np.concatenate([slot["gps_e"],   gps_e])
+        slot["gps_n"]    = np.concatenate([slot["gps_n"],   gps_n])
+        slot["gps_alt"]  = np.concatenate([slot["gps_alt"], gps_alt])
+        slot["gps_qx"]   = np.concatenate([slot["gps_qx"],  gps_qx])
+        slot["gps_qy"]   = np.concatenate([slot["gps_qy"],  gps_qy])
+        slot["gps_qz"]   = np.concatenate([slot["gps_qz"],  gps_qz])
+        slot["gps_qw"]   = np.concatenate([slot["gps_qw"],  gps_qw])
+        slot["gps_ts"]   = np.concatenate([slot["gps_ts"],  gps_ts])
+        
 
     # ---------- Compactación: ventana de tiempo, tope de puntos, voxel ----------
     #def compact(self):
@@ -252,6 +330,15 @@ class RadarMapAccumulator(Node):
         msg_rc.x = pts[:, 0].tolist()
         msg_rc.y = pts[:, 1].tolist()
         msg_rc.z = pts[:, 2].tolist()
+
+        msg_rc.gps_e    = slot["gps_e"].astype(np.float32).tolist()
+        msg_rc.gps_n    = slot["gps_n"].astype(np.float32).tolist()
+        msg_rc.gps_alt  = slot["gps_alt"].astype(np.float32).tolist()
+        msg_rc.gps_qx   = slot["gps_qx"].astype(np.float32).tolist()
+        msg_rc.gps_qy   = slot["gps_qy"].astype(np.float32).tolist()
+        msg_rc.gps_qz   = slot["gps_qz"].astype(np.float32).tolist()
+        msg_rc.gps_qw   = slot["gps_qw"].astype(np.float32).tolist()
+        msg_rc.gps_frame = slot.get("gps_frame", "")
 
         msg_rc.bunker_pose_id = int(pose_id)
 
