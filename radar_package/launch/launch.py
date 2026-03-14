@@ -7,8 +7,8 @@ def generate_launch_description():
         # ----------------- hardware connection -----------------------
         Node(
             package='radar_package',               # Paquete ROS
-            executable='radar_sync_node',          # nodo ejecutable
-            name='radar_sync_node',                # nombre en 'ros2 node list'
+            executable='radar_node',          # nodo ejecutable
+            name='radar_node',                # nombre en 'ros2 node list'
             output='screen',                       # salida en la terminal
             #parameters=[{
             #    'angle_min': ANGLE_MIN_RADAR_BEAM,                  # parametros admitidos en la ejecucion

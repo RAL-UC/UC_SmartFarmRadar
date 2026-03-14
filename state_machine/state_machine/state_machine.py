@@ -5,7 +5,7 @@ from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Header
 from radar_msg.msg import RadarData
-from radar_msg.action import PtuSweep, Beamform
+from radar_msg.action import PtuSweep, RadarBeamform
 from ral_bunker_msgs.action import NextPose
 from std_srvs.srv import Empty
 
@@ -13,7 +13,7 @@ class StateMachine(Node):
     def __init__(self):
         super().__init__('state_machine')
         self._ptu_client = ActionClient(self, PtuSweep, 'ptu_sweep')
-        self._radar_client = ActionClient(self, Beamform, 'radar_beamform') 
+        self._radar_client = ActionClient(self, RadarBeamform, 'radar_beamform') 
         self._bunker_action_client = ActionClient(self, NextPose, 'next_pose')
 
         self._radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
@@ -139,7 +139,7 @@ class StateMachine(Node):
     ############## RADAR ###############
     def start_beamforming(self, pan_deg: int, tilt_deg: int):
         self._radar_client.wait_for_server()
-        goal_bf = Beamform.Goal()
+        goal_bf = RadarBeamform.Goal()
         goal_bf.pan_deg  = int(pan_deg)
         goal_bf.tilt_deg = int(tilt_deg)
 

@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from radar_msg.msg import RadarData
-from radar_msg.action import Beamform
+from radar_msg.action import RadarBeamform
 from radar_package.parametros import *
 
 class BeamformRepeat(Node):
@@ -22,7 +22,7 @@ class BeamformRepeat(Node):
         self.wait_timeout = float(self.get_parameter('wait_server_timeout_s').value)
 
         self.infinite = (self.repeat <= 0) # <=0 => infinito
-        self.client = ActionClient(self, Beamform, 'radar_beamform')
+        self.client = ActionClient(self, RadarBeamform, 'radar_beamform')
 
         self._radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
 
@@ -44,7 +44,7 @@ class BeamformRepeat(Node):
             rclpy.shutdown()
             return
 
-        goal = Beamform.Goal()
+        goal = RadarBeamform.Goal()
         goal.pan_deg = self.pan_deg
         goal.tilt_deg = self.tilt_deg
 

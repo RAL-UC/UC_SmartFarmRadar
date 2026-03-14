@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
-import threading
+import threading # multitask
 import numpy as np
 
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 
-from std_msgs.msg import Bool, Header
+from std_msgs.msg import Bool
+#from std_msgs.msg import Header
+
 from radar_msg.msg import RadarData
-from radar_msg.action import Beamform, PtuSweep
+from radar_msg.action import RadarBeamform, PtuSweep
 from radar_package.parametros import *
 
 class PtuRadarScan(Node):
     """
     Espera Bool en /start_scan. Al recibir True:
       - Recorre el PTU en [angle_min:angle_step:angle_max]
-      - Llama a radar_beamform en cada ángulo
-      - Apila filas y publica un RadarData final en 'radar_data'
+      - Llama a radar_beamform en cada ángulo del PTU
+      - Apila filas y publica un mensaje RadarData de captura en 'radar_data'
     No apaga rclpy: el nodo sigue vivo hasta que cierres el proceso.
     """
 
@@ -27,7 +29,7 @@ class PtuRadarScan(Node):
         self.declare_parameter('angle_min', ANGLE_MIN_PTU_PAN)
         self.declare_parameter('angle_max', ANGLE_MAX_PTU_PAN)
         self.declare_parameter('angle_step', ANGLE_STEP_PTU_PAN)
-        self.declare_parameter('wait_server_timeout_s', 10.0)
+        self.declare_parameter('wait_server_timeout_s', WAIT_TIMEOUT_SERVER)
         self.declare_parameter('trigger_topic', 'start_scan')
         self.declare_parameter('publish_topic', 'radar_data')
 
@@ -51,12 +53,13 @@ class PtuRadarScan(Node):
         #self.tilt_list = [-20, -15, -10, -5, 0]
         self.tilt_list = [0]
         #self.tilt_list = [0] * len(self.pan_list) # tilt fijo 0, mismo largo que pan_list
+
         if len(self.pan_list) == 0:
             raise RuntimeError("El rango de ángulos es vacío. Revisa angle_min/angle_max/angle_step.")
 
-        # Action clients (nombres por defecto)
+        # Action clients
         self.ptu_client = ActionClient(self, PtuSweep, 'ptu_sweep')
-        self.radar_client = ActionClient(self, Beamform, 'radar_beamform')
+        self.radar_client = ActionClient(self, RadarBeamform, 'radar_beamform')
 
         # Publisher del resultado final
         self.pub_final = self.create_publisher(RadarData, self.publish_topic, 10)
@@ -176,7 +179,7 @@ class PtuRadarScan(Node):
 
                     # 2) Radar
                     self.get_logger().info(f"{tag} Radar beamform pan={pan}°, tilt={tilt}°")
-                    rb_goal = Beamform.Goal()
+                    rb_goal = RadarBeamform.Goal()
                     rb_goal.pan_deg = int(pan)
                     rb_goal.tilt_deg = int(tilt)
                     ok, rb_res, err = self._send_goal_wait_result(self.radar_client, rb_goal, 'radar_beamform')
@@ -186,7 +189,7 @@ class PtuRadarScan(Node):
                         return
 
                     if not hasattr(rb_res, 'radar_data'):
-                        self.get_logger().error("Beamform.Result no trae 'radar_data'. Revisa tu Beamform.action.")
+                        self.get_logger().error("RadarBeamform.Result no trae 'radar_data'. Revisa tu Beamform.action.")
                         return
 
                     rd: RadarData = rb_res.radar_data

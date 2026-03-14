@@ -18,6 +18,7 @@ RAMP_TIME_S = int(RAMP_TIME)/1e6 # 5 x 10^⁻4
 C = 3e8 # velocidad de la luz m/s
 WAVELENGTH = C / OUTPUT_FREQ # longitud de onda 0.3 m -> 30 cm
 SLOPE = BANDWIDTH / RAMP_TIME_S # variación de la frecuencia por unidad de tiempo (ancho de banda total) / (duración de la rampa)s = 1x10^12
+
 #INITIAL_ATTENUATION = 1.4 # valores en su mayoria negativos
 IDX_ATTENUATION = 8
 
@@ -79,3 +80,5 @@ MIN_RANGE_M = 0
 MAX_RANGE_M = 5
 
 REPEAT_CAPTURE = -1
+
+WAIT_TIMEOUT_SERVER = 30 # 30 s

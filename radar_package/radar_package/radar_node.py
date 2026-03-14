@@ -3,7 +3,7 @@
 import rclpy # ros2 
 from rclpy.node import Node # clase nodo de ros2
 import adi # libreria de analog devices
-import time # control temporal
+#import time # control temporal
 import numpy as np # calculo matematico
 # mensajes de ros
 from radar_msg.msg import RadarData
