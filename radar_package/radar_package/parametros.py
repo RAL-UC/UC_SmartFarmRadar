@@ -3,29 +3,31 @@
 # url gps simplerik3b pro septentrio mosaic x5 ardusimple 192.168.3.1 - https://www.ardusimple.es/how-to-configure-septentrio-mosaic-x5-and-mosaic-h/
 SDR_URI = "ip:phaser.local:50901" # 192.168.2.50, 192.168.2.60 o 192.168.2.40
 PHASER_URI = "ip:phaser.local"
-ELEMENT_SPACING = 0.014 # espaciamiento de los parches en el phaser en metros
+ELEMENT_SPACING = 0.014 # espaciamiento de los parches en el phaser en metros 14mm
 
-SAMPLE_RATE = 0.6e6 # frecuencia de muestreo
+SAMPLE_RATE = 0.6e6 # frecuencia de muestreo 600 kHz
 
 # frecuencias
 CENTER_FREQ = 2.2e9 # 2.2 GHz frecuencia de operacion PlutoSDR
-SIGNAL_FREQ = 100e3 # frecuencia de la señal transmitida 
-OUTPUT_FREQ = 10e9 
-BANDWIDTH = 500e6 # ancho de banda del chirp
+SIGNAL_FREQ = 100e3 # frecuencia de la señal transmitida 100 kHz
+OUTPUT_FREQ = 10e9 # frecuencia de salida de 10 GHz
+BANDWIDTH = 500e6 # ancho de banda del chirp 500 MHz
 NUM_STEPS = 500 # numero de pasos en que se dividira el chirp
-RAMP_TIME = 500 # duracion de cada chirp en us, se aconseja tener un paso por us
-RAMP_TIME_S = int(RAMP_TIME)/1e6
+RAMP_TIME = 500 # 500us duracion de cada chirp, se aconseja tener un paso por us
+RAMP_TIME_S = int(RAMP_TIME)/1e6 # 5 x 10^⁻4
 C = 3e8 # velocidad de la luz m/s
-WAVELENGTH = C / OUTPUT_FREQ # longitud de onda
-SLOPE = BANDWIDTH / RAMP_TIME_S # variación de la frecuencia por unidad de tiempo (ancho de banda total) / (duración de la rampa)s
+WAVELENGTH = C / OUTPUT_FREQ # longitud de onda 0.3 m -> 30 cm
+SLOPE = BANDWIDTH / RAMP_TIME_S # variación de la frecuencia por unidad de tiempo (ancho de banda total) / (duración de la rampa)s = 1x10^12
 #INITIAL_ATTENUATION = 1.4 # valores en su mayoria negativos
 IDX_ATTENUATION = 8
 
 # podria reajustarse segun el calculo y aproximacion dada a los bins
+# fbeat = 2SR/c = 6666 Hz
+# R distancia objetivo
 OFFSET = 10.76e3 # 6666 Hz por metro 10760/6666 = 1.614 metros de offset en medicion de distancia  
 
-RX_GAIN_CHAN0 = 50 # ganancia en la recepcion valor entre -3 y 70 CANAL 0
-RX_GAIN_CHAN1 = 50 # ganancia en la recepcion valor entre -3 y 70 CANAL 1
+RX_GAIN_CHAN0 = 70 # ganancia en la recepcion valor entre -3 y 70 CANAL 0
+RX_GAIN_CHAN1 = 70 # ganancia en la recepcion valor entre -3 y 70 CANAL 1
 
 TX_GAIN_CHAN0 = -88 # ganancia en la recepcion valor entre 0 y -88 CANAL 0 -> Tx1
 TX_GAIN_CHAN1 = 0 # ganancia en la recepcion valor entre 0 y -88 CANAL 1 -> Tx2
@@ -33,7 +35,7 @@ TX_GAIN_CHAN1 = 0 # ganancia en la recepcion valor entre 0 y -88 CANAL 1 -> Tx2
 # Intervalo de Repetición de Pulso (PRI) -> tiempo entre chirridos
 # cada cuánto ocurrirá el ciclo TX+RX+espera -> cada cuadro coincide con un chirrido
 PRI = RAMP_TIME/1e3 + 1.0 # se define en milisegundos y se le suma 1 ms como margen de separación entre chirridos
-NUM_CHIRPS = 20 # solo un chirrido por cuadro
+NUM_CHIRPS = 1 # solo un chirrido por cuadro (uso con potencias de 2)
 
 # se define en segundos y se ignora el 10%
 PERCENT_IGNORE_SAMPLES = 0.1
@@ -50,7 +52,7 @@ N_MAPS = 13 # 180/15 + 1 -> desplazamiento de pantilt de 15 grados para un escan
 ANGLE0 = -90
 
 # radar: considerar patron de transmision de antena transmisora, diagrama polar con 24° de apertura caida a -3db
-FOV = 100 # 160
+FOV = 160 # 160
 ANGLE_MIN_RADAR_BEAM = -80 # grados -80
 ANGLE_MAX_RADAR_BEAM = 80 # grados 80
 ANGLE_STEP_RADAR_BEAM = 1 # grados
@@ -74,6 +76,6 @@ CFAR_METHOD = "average"
 
 # Filtro de distancia
 MIN_RANGE_M = 0
-MAX_RANGE_M = 10
+MAX_RANGE_M = 5
 
-REPEAT_CAPTURE = 20
+REPEAT_CAPTURE = -1

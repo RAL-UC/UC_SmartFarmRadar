@@ -30,7 +30,7 @@ class CartPlot(Node):
 
         plt.ion()
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
-        (self.ln,) = self.ax.plot([], [], '.', markersize=1)
+        (self.ln,) = self.ax.plot([], [], '.', markersize=5, color='green')
         self.map_size = 10.0          # lado del cuadro fijo [m]
         self.center_x = 0.0          # centro X [m]
         self.center_y = 0.0          # centro Y [m]
@@ -101,7 +101,7 @@ class CartPlot(Node):
 
         # 2) limpiar buffers si cambia la pose (evita solape entre poses)
         if self.last_pose_id is None or pose_id != self.last_pose_id:
-            self._save_snapshot(self.last_pose_id, self.last_pts, self.last_ts)
+            #self._save_snapshot(self.last_pose_id, self.last_pts, self.last_ts)
             self._need_hard_clear = True 
 
         x_raw = np.asarray(msg.x, dtype=np.float32)
@@ -178,7 +178,7 @@ class CartPlot(Node):
         if self._need_hard_clear:
             self.ax.cla()  # limpia TODO el axes
             # recrear artistas y estilos
-            (self.ln,) = self.ax.plot([], [], '.', markersize=1)
+            (self.ln,) = self.ax.plot([], [], '.', markersize=5, color='green')
             self.ax.set_xlabel('X [m]')
             self.ax.set_ylabel('Y [m]')
             self.ax.grid(True, linestyle='--', linewidth=0.5)

@@ -233,6 +233,7 @@ class RadarVisualizer(Node):
             if self.medicion_fondo.shape == mat.shape:
                 mat = mat - self.medicion_fondo
                 #mat = self.medicion_fondo
+                #pass
             elif self.medicion_fondo.shape[1] == mat.shape[1] and mat.shape[0] == 1:
                 fondo_1x = np.array(self.medicion_fondo[80]).reshape(rows, cols) # 1×N
                 mat = mat - fondo_1x
@@ -247,7 +248,8 @@ class RadarVisualizer(Node):
         freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, cols, endpoint=False)
         distance = self.freq_to_distance(freq)
         # filtrar solo distancias >= 0
-        self.valid_indices = np.where(distance >= 0)[0]
+        self.valid_indices = np.where((distance >= MIN_RANGE_M) & (distance <= MAX_RANGE_M))[0]
+        #self.get_logger().info(f"{self.valid_indices}")
         self.filtered_data = mat[:, self.valid_indices]
         # atenuar valores iniciales
         #row_means = np.mean(self.filtered_data, axis=1)

@@ -1,46 +1,48 @@
 #!/usr/bin/env python3
 # ejecutable con interprete python3
 import rclpy # ros2 
-from rclpy.node import Node
+from rclpy.node import Node # clase nodo de ros2
 import adi # libreria de analog devices
-import time
-import numpy as np
+import time # control temporal
+import numpy as np # calculo matematico
 # mensajes de ros
 from radar_msg.msg import RadarData
-#from std_msgs.msg import Bool
 from std_msgs.msg import Header
-import os
-from ament_index_python.packages import get_package_share_directory # recursos
-from radar_package.parametros import *
-#import sys
-from rclpy.action import ActionServer
-from radar_msg.action import Beamform
+#from std_msgs.msg import Bool
+import os # sistema
+#import sys # interprete
+from ament_index_python.packages import get_package_share_directory # archivos de recursos
+from radar_package.parametros import * # importar parametros
+from rclpy.action import ActionServer # acciones de ros2
+from radar_msg.action import Beamform #accion de beamforming
 
-# recursos
+# recursos de calibracion
 pkg_share = get_package_share_directory('radar_package')
-path_gain = os.path.join(pkg_share, 'resource', 'gain_cal_val.pkl')
-path_phase = os.path.join(pkg_share, 'resource', 'phase_cal_val.pkl')
+path_gain = os.path.join(pkg_share, 'resource', 'gain_cal_val.pkl') # ganancia
+path_phase = os.path.join(pkg_share, 'resource', 'phase_cal_val.pkl') # fase
 
 class MaxRetriesExceeded(Exception):
-    """Excepción personalizada para indicar que se agotaron los reintentos."""
+    """Excepción personalizada para indicar que se agotaron los reintentos de conexión"""
     pass
 
 # herencia de node, al instanciar se registra en el grafo de ROS2
 class RadarNode(Node):
     def __init__(self):
-        super().__init__('radar_node')
-        self.retry_count = 0
+        super().__init__('radar_node') # declarar herencia
+        # reconexion
+        self.retry_count = 0 # conteo de reintentos
         self.max_retries = 1 # -1 para infinitos reintentos
         self.retry_interval = 5.0 # segundos
         self.hardware_ready = False
         self.reconnect_timer = None
 
         # parámetros configurables desde línea de comandos o launch 
+        # apertura de radar
         self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM) # grados
         self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM) # grados
         self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM) # grados
 
-        # Leer parámetros
+        # lectura de parámetros
         p = self.get_parameter
         self.angle_min_radar_beam = p('angle_min_radar_beam').get_parameter_value().integer_value
         self.angle_max_radar_beam = p('angle_max_radar_beam').get_parameter_value().integer_value
@@ -49,22 +51,18 @@ class RadarNode(Node):
         self.angles = np.arange(self.angle_min_radar_beam, self.angle_max_radar_beam+1, self.angle_step_radar_beam) # vector de angulos en recorrido
         #self.get_logger().info(f"self.angles: {self.angles}")
 
-        # --- Publisher ---
-        # clase de mensaje, nombre del topico, tamaño de buffer
-        #self.pub_matrix = self.create_publisher(RadarData, 'radar_data', 10)
-        # -- Subscriber ---
-        #self.sub_trigger = self.create_subscription(Bool, 'allow_sweep', self.trigger_callback, 10)
-
-        # servidor
+        # servidor basado en acciones
+        # tipo de accion, nombre de la accion, funcion callback
         self._beamform_server = ActionServer(self, Beamform, 'radar_beamform', self.execute_beamform_cb)
 
+        # ventana que multiplica los valores antes de la transformada de fourier
         #self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
-        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
-        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
+        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman
+        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES) # ventana hamming
+        # obtener suma para normalizar la amplitud del espectro
         #self.sum_win_funct = np.sum(self.win_funct)
-        
 
-        # Inicializar hardware
+        # inicializar hardware
         self.init_hardware() # restriccion: para inicializar se debe esperar correctamente a que el disposivo encienda
 
     def init_hardware(self):
@@ -97,17 +95,18 @@ class RadarNode(Node):
         self.get_logger().info("Iniciando rutina de configuración")
         # Configuración del Phaser ADAR1000: gananacia y fase
         # IMPORTANTE: se deben importar los archivos de calibracion
-        phaser.configure(device_mode="rx")
-        phaser.element_spacing = ELEMENT_SPACING
-        phaser.load_gain_cal(path_gain)
-        phaser.load_phase_cal(path_phase)
+        phaser.configure(device_mode="rx") # modo receptor
+        phaser.element_spacing = ELEMENT_SPACING # espaciado de elementos
+        phaser.load_gain_cal(path_gain) # calibracion de ganancia
+        phaser.load_phase_cal(path_phase) # calibracion de fase
 
+        # ganancia y direccionamiento deseado 
         # ajustar a 0 la fase de cada canal con compensacion de calibracion
         for ch in range(8):
             phaser.set_chan_phase(ch, 0, apply_cal=True)
 
         # ganancia con compensacion de calibracion por cada canal
-        gains = [6, 27, 66, 100, 100, 66, 27, 6] # ventana blackman
+        gains = [6, 27, 66, 100, 100, 66, 27, 6] # ventana blackman en ganancia de arreglo
         for i, g in enumerate(gains):
             phaser.set_chan_gain(i, g, apply_cal=True)
 
@@ -123,8 +122,8 @@ class RadarNode(Node):
         phaser._gpios.gpio_vctrl_2 = 1
 
         # Configuración del receptor Rx del PlutoSDR
-        sdr.sample_rate = int(SAMPLE_RATE) # Establece la tasa de muestreo en Hz
-        sdr.rx_lo = int(CENTER_FREQ) # Configura el oscilador local (LO) en la frecuencia central
+        sdr.sample_rate = int(SAMPLE_RATE) # Establece la tasa de muestreo en 600 kHz
+        sdr.rx_lo = int(CENTER_FREQ) # Configura el oscilador local (LO) en la frecuencia central 2.2 GHz
         sdr.rx_enabled_channels = [0, 1] # Habilita los canales de recepción: Canal 0 (Rx1 / voltage0) - Canal 1 (Rx2 / voltage1)
         sdr.gain_control_mode_chan0 = "manual" # manual o slow_attack (automatico segun señal de recepcion)
         sdr.gain_control_mode_chan1 = "manual" # manual o slow_attack (automatico segun señal de recepcion)
@@ -134,7 +133,7 @@ class RadarNode(Node):
         # Configuración del transmisor Tx del SDR
         sdr.tx_lo = int(CENTER_FREQ) # Configura el oscilador local (LO) para transmisión en la misma frecuencia central
         sdr.tx_enabled_channels = [0, 1] # Habilita los canales de transmision: Canal 0 Tx1 - Canal 1 Tx2
-        sdr.tx_cyclic_buffer = True # buffer ciclico para modo rafaga TDD
+        sdr.tx_cyclic_buffer = True # buffer ciclico para modo rafaga TDD burst, de lo contrario hay comportamiento aleatorio
         sdr.tx_hardwaregain_chan0 = TX_GAIN_CHAN0 # valor entre 0 y -88
         sdr.tx_hardwaregain_chan1 = TX_GAIN_CHAN1 # valor entre 0 y -88
 
@@ -142,48 +141,51 @@ class RadarNode(Node):
         # PLL tiene retroalimentacion con valor /4
 
         phaser.frequency = int(OUTPUT_FREQ + sdr.rx_lo + SIGNAL_FREQ) // 4 # 10GHz + 100kHz + 2.2GHz
-        phaser.freq_dev_range = int(BANDWIDTH / 4) # desviación de frecuencia total de la rampa de frecuencia completa en Hz
-        phaser.freq_dev_step = int((BANDWIDTH/4) / NUM_STEPS) # desviacion en cada paso
-        phaser.freq_dev_time = int(RAMP_TIME) # tiempo total de la rampa de frecuencia completa en us
+        phaser.freq_dev_range = int(BANDWIDTH / 4) # desviación de frecuencia total de la rampa de frecuencia completa en 500 MHz
+        phaser.freq_dev_step = int((BANDWIDTH/4) / NUM_STEPS) # desviacion en cada paso 500 steps
+        phaser.freq_dev_time = int(RAMP_TIME) # tiempo total de la rampa de frecuencia completa en 500 us (1step/us)
 
-        phaser.delay_word = 4095 # Palabra de retardo de 12 bits. 4095 * PFD = 40.95 us.
+        phaser.delay_word = 4095 # Palabra de retardo de 12 bits. 4095 * PFD = 40.95 us -> reloj de 10ns o 100 MHz
         # PFD Phase Frequency Detector - Detector de Fase y Frecuencia -> ajuste de frecuencia de oscilacion y sincronizacion
-        # Para rampas en diente de sierra, este valor también define la duración de la señal Ramp_complete.
+        # Para rampas en diente de sierra, este valor define la duración de la señal
         phaser.delay_clk = "PFD" # Reloj de referencia para el retardo. Puede ser 'PFD' (Phase Frequency Detector) o 'PFD*CLK1' (multiplicado por un factor adicional de tiempo)
         phaser.delay_start_en = 0 # Habilitación del retardo de inicio: 0 = deshabilitado, 1 = habilitado
         phaser.ramp_delay_en = 0 # Habilitación del retardo entre rampas: 0 = sin retardo, 1 = introduce un retardo entre cada rampa
-        phaser.trig_delay_en = 0 # Habilitación del retardo en el disparo de la señal (trigger delay): 0 = deshabilitado, 1 = habilitado
+        phaser.trig_delay_en = 0 # Habilita un retardo adicional para rampas triangulares: 0 = deshabilitado, 1 = habilitado -> cortar la punta del triangulo
         phaser.ramp_mode = "single_sawtooth_burst" # puede ser: "disabled", "continuous_sawtooth", "continuous_triangular", "single_sawtooth_burst", "single_ramp_burst"
-        phaser.sing_ful_tri = 0 # deshabilitar/habilitar triángulo completo: esto se utiliza con el modo single_ramp_burst
+        phaser.sing_ful_tri = 0 # 0 deshabilitar/1 habilitar triángulo completo: esto se utiliza con el modo single_ramp_burst
         phaser.tx_trig_en = 1 # iniciar una rampa con TXdata
         phaser.enable = 0 # 0 = PLL habilitado, 1 = PLL deshabilitado, actualiza todos los registros -> colocar al final
 
-        # Sincronizar chirridos con el inicio de cada búfer de recepción de PlutoSDR
+        # Sincronizar chirridos en phaser con el inicio de cada búfer de recepción de PlutoSDR - en microcontrolador
         # Configurar el controlador TDD
+        # no jitter de sotfware -> señales a nivel de hardware
         sdr_pins = adi.one_bit_adc_dac(SDR_URI) # se crea un objeto sdr_pins para controlar los GPIOs del PlutoSDR
         # - True: se habilita la activación de captura externa mediante el GPIO L24N en PlutoSDR
         # - False: se generará un pulso de activación interno cada segundo
-        sdr_pins.gpio_tdd_ext_sync = True 
+        sdr_pins.gpio_tdd_ext_sync = True # sincronizacion por trigger
         tdd = adi.tddn(SDR_URI) # Se crea el objeto tdd que representa el controlador TDD (Time Division Duplexing) del PlutoSDR
-        sdr_pins.gpio_phaser_enable = True # Habilita el pin gpio_phaser_enable 
+        sdr_pins.gpio_phaser_enable = True # Habilita el pin gpio_phaser_enable para control sobre el phaser
         tdd.enable = False # deshabilitar TDD para configurar los registros
-        tdd.sync_external = True # la sincronización será por señal externa
+        tdd.sync_external = True # la sincronización será por señal externa - pluto esclavo de un pulso
         tdd.startup_delay_ms = 0 # no se espera ningún retardo tras recibir el trigger externo
         tdd.frame_length_ms = PRI # cada chirrido está espaciado a esta distancia
         tdd.burst_count = NUM_CHIRPS # numero de chirridos en un búfer de recepción continuo
 
-        # canal 0
+        # microcontrolador, pluto, phaser -> buffers
+        # cuando transmitir, recibir o activar perifericos
+        # canal 0 (sincronizacion de las salidas de datos TX)
         tdd.channel[0].enable = True # Habilita el canal 0 del TDD
         tdd.channel[0].polarity = False # polaridad de la señal (activacion con nivel alto)
         tdd.channel[0].on_raw = 0 # el canal se activa al instante 0 del cuadro
         tdd.channel[0].off_raw = 10 # se desactiva en el tick 10
-        # cuando recibir, transmitir o activar perifericos
-        # canal 1
+        # canal 1 (sincronizacion de inicio para el bufer recibido de Pluto)
         tdd.channel[1].enable = True 
         tdd.channel[1].polarity = False
         tdd.channel[1].on_raw = 0
         tdd.channel[1].off_raw = 10
-        # canal 2
+        # canal 2 (sincronizacion entre el bufer de transmision y el de recepcion)
+        # sirve para creacion de ondas digital codificadas 
         tdd.channel[2].enable = True
         tdd.channel[2].polarity = False
         tdd.channel[2].on_raw = 0
@@ -192,12 +194,12 @@ class RadarNode(Node):
         tdd.enable = True # se activa el TDD con toda la configuración aplicada
         # el Pluto responderá a los triggers externos, activando los canales configurados, transmitiendo chirridos y capturando datos en los búferes de recepción
 
-        # Desde el inicio destart_offset_time cada rampa, ¿cuántos puntos "buenos" queremos?
+        # Desde el inicio de start_offset_time de cada rampa, ¿cuántos puntos "buenos" queremos?
         # Para una mejor linealidad de frecuencia, evite el inicio de las rampas
 
         self.start_offset_time = int(tdd.channel[0].on_ms/1e3 + BEGIN_OFFSET_TIME) # desde el inicio de encendido del canal TDD hasta donde realmente empiezan las muestras útiles
         self.start_offset_samples = int(self.start_offset_time * SAMPLE_RATE) # cuántas muestras deben ignorarse para empezar justo desde esa parte útil
-        #self.get_logger().info(f"{self.start_offset_time}, {self.start_offset_samples}") # 0, 0
+        #self.get_logger().info(f"self.start_offset_time: {self.start_offset_time}, self.start_offset_samples: {self.start_offset_samples}") # 0, 0
 
         # dimension de la fft para el número de puntos de datos de rampa
         # FFT funcionan más rápido y eficientemente cuando su tamaño es una potencia de 2
@@ -210,39 +212,41 @@ class RadarNode(Node):
         # aumentar FFT disminuye delta f permitiendo distinguir frecuencias mas cercanas
         # Define cuántos puntos usas para calcular el espectro de cada chirrido o ráfaga
         # análisis de frecuencia de un subconjunto del buffer
-        power = 12 # potencia
-        self.fft_size = int(2**power) # potencia de 2^8 = 256 - 4096
+        power = 8 # potencia
+        self.fft_size = int(2**power) # potencia de 2^8 = 256 a 4096
         self.num_samples_frame = int(tdd.frame_length_ms/1000*SAMPLE_RATE) # cuántas muestras hay en un frame TDD completo
-        #.get_logger().info(f"{self.num_samples_frame}")
+        #.get_logger().info(f"self.num_samples_frame: {self.num_samples_frame}")
         # aumento del tamaño de la FFT para que sea mayor que num_samples_frame
         while self.num_samples_frame > self.fft_size:     
             power=power+1
             self.fft_size = int(2**power) 
             if power==18:
                 break
-        #print("fft_size =", self.fft_size) # 1024
+
+        #self.get_logger().info(f"fft_size: {self.fft_size}) # 1024
 
         # el tamaño del búfer de recepción de PlutoSDR debe ser mayor que el tiempo total para cada uno de los conjuntos de chirridos
         # cuántas muestras puede almacenar el PlutoSDR de una vez antes de que las leas del computerhost
         # para modo rafaga TDD adquisicion en tiempo real y de forma continua
         # se calcula para que pueda contener todos los chirridos de un frame TDD completo
-        # buffer_size >= SAMPLE_RATE > duracion total de los chirps
+        # buffer_size/SAMPLE_RATE > duracion total de los chirps
         # eficiencia de hardware uso de potencia de 2
         total_time = tdd.frame_length_ms * NUM_CHIRPS # tiempo en ms
-        buffer_time = 0
         power=12
+        buffer_size = int(2**power)
+        buffer_time = buffer_size/SAMPLE_RATE*1000 # buffer time in ms
         while total_time > buffer_time:     
             power=power+1
             buffer_size = int(2**power) 
-            buffer_time = buffer_size/SAMPLE_RATE*1000 # buffer time in ms
+            buffer_time = buffer_size/SAMPLE_RATE*1000
             if power==22:
                 break # El tamaño máximo del búfer de PlutoSDR es 2**23, pero para el modo ráfaga tdd, configúrelo en 2**22
-        #print("buffer_size:", buffer_size) # 8192
-        #print("buffer_time:", buffer_time, " ms") # 13.653333333333332
+        
+        #self.get_logger().info(f"buffer_size: {self.buffer_size}, buffer_time: {buffer_time}") # 8192, 13.653333333333332
         sdr.rx_buffer_size = buffer_size
 
         # Generación de una señal senoidal
-        fs = int(SAMPLE_RATE) # frecuencia de muestreo
+        fs = int(SAMPLE_RATE) # frecuencia de muestreo 600 kHz
         N = int(sdr.rx_buffer_size) # tamaño del buffer de captura
         fc = int(SIGNAL_FREQ / (fs / N)) * (fs / N) # frecuencia más cercana representable con ese tamaño de muestra y frecuencia de muestreo
         # evitar fugas espectrales, producir un peak limpio, mejora de analisis espectral
@@ -253,10 +257,8 @@ class RadarNode(Node):
         iq = 1 * (i + 1j * q) # Construir la señal compleja I/Q (mezcla de fase y cuadratura)
 
         # ENVÍO DE DATOS AL SDR
-        sdr._ctx.set_timeout(30000) # error de tiempo de espera de 30 s
-        sdr._rx_init_channels() # verifica si ya existe una máscara de canales Rx configurada -> si no está, significa que los canales Rx aún no se han preparado para recibir datos.
-        # crea una máscara de canales IIO usando iio.ChannelsMask con dispositivo de recepción (RxADC)
-        # se define qué canales se habilitarán y estarán activos cuando se crea el buffer de recepcion DMA (direct memory acces)
+        sdr._ctx.set_timeout(30000) # tiempo de espera de error a 30 s
+        sdr._rx_init_channels() # metodo no implementado
         sdr.tx([iq, iq]) # se transmite con ganancia solo en Tx2
 
         # guardar instancias
@@ -266,13 +268,15 @@ class RadarNode(Node):
         self.hardware_ready = True
         self.get_logger().info("Fin rutina de configuración")
 
-        #self.ready_for_allow = True
-        #self.get_logger().info("Publicar True en /allow_sweep para iniciar barrido de angulos")
-
 
     async def execute_beamform_cb(self, goal_handle):
         """
-        Ejecuta una adquisición beamforming y publica el RadarData resultante. Devuelve success/message.
+        callback de accion ros2
+        asincronica
+        se ejecuta cuando llega una meta, esta basada en una peticion request, retorna un feedback y permite finalizar cuando se completa
+
+        Ejecuta una adquisición beamforming y publica el RadarData resultante. 
+        Devuelve success/message.
         """
         pan  = int(goal_handle.request.pan_deg)
         tilt = int(goal_handle.request.tilt_deg)
@@ -297,12 +301,14 @@ class RadarNode(Node):
             goal_handle.publish_feedback(feedback)
 
             # logica de beamforming
-            mat = self.do_sweep()
-            # logica de captura en un solo angulo
-            #mat = self.do_chirp()
+            mat = self.do_sweep() # matriz de valores
 
-            #self.get_logger().info(f"mat.dtype {mat.dtype}")
+            # logica de captura para un solo angulo
+            #mat = self.do_chirp() # # matriz de valores
 
+            #self.get_logger().info(f"mat.dtype: {mat.dtype}")
+
+            # formar mensaje de radar
             msg = RadarData()
             msg.header = Header()
             msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
@@ -311,15 +317,14 @@ class RadarNode(Node):
             msg.tilt_deg = tilt
             msg.rows = mat.shape[0]
             msg.cols = mat.shape[1]
-            #msg.dtype = str(mat.dtype)
-            #msg.data = mat.flatten().tolist() # aplanado
+            # tipo de dato predefinido como float64 separado en reales e imaginarios
+            msg.dtype = "float64"
             real64 = np.ascontiguousarray(np.real(mat), dtype=np.float64).ravel(order="C")
             imag64 = np.ascontiguousarray(np.imag(mat), dtype=np.float64).ravel(order="C")
-
             msg.data_real = real64.tolist()
             msg.data_imag = imag64.tolist()
-            msg.dtype = str(real64.dtype) # "float64"
-            #self.get_logger().info(f"len real {len(real64.tolist())}, len img {len(imag64.tolist())} tipo {msg.dtype}")
+
+            #self.get_logger().info(f"len real: {len(real64.tolist())}, len img: {len(imag64.tolist())} tipo: {msg.dtype}")
 
             feedback.status = "OK, devolviendo resultado"
             goal_handle.publish_feedback(feedback)
@@ -340,30 +345,10 @@ class RadarNode(Node):
             goal_handle.abort()
             return result
 
-    #def trigger_callback(self, msg):
-    #    if not self.hardware_ready:
-    #        self.get_logger().warn("Hardware no listo: Ignorando actividad")
-    #        return
-    #
-    #    if msg.data and self.ready_for_allow:
-    #        self.get_logger().info("/allow_sweep True recibido: Ejecutando barrido")
-    #        self.ready_for_allow = False # bloquea hasta recibir False
-    #        try:
-    #            self.do_sweep()
-    #        except Exception as e:
-    #            self.get_logger().error(f"¡Error durante el barrido! Hardware podría estar desconectado: {e}")
-    #            self.hardware_ready = False
-    #            self.retry_count = 0 # reconexion
-    #            self.get_logger().info(f"Intentando reconexión en {self.retry_interval} segundos...")
-    #            if self.reconnect_timer is None:
-    #                self.reconnect_timer = self.create_timer(self.retry_interval, self.init_hardware)
-    #        finally:
-    #            self.ready_for_allow = True
-    #            self.get_logger().info("Hardware listo: Esperando /allow_sweep True")
-
+    # hace un barrido del PTU y del phaser por varios angulos
     def do_sweep(self):
         radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
-        for theta in self.angles: # 100 grados desde -50 a 50, debe tener concordancia con el PTU
+        for theta in self.angles: # 160 grados desde -80 a 80, debe tener concordancia con el PTU
             # 1) direccion del haz
             # Fórmula:
             # Phase delta = 2*Pi*d*sin(theta)/lambda = 2*Pi*d*sin(theta)*f/c
@@ -373,20 +358,21 @@ class RadarNode(Node):
             # introduce un error el cual es pequeño 
             phase_delta = (2*np.pi * SIGNAL_FREQ_PHASER_RECEPTION * ELEMENT_SPACING * np.sin(np.radians(theta))) / C
             self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
-            #time.sleep(0.05)
+            
+            #time.sleep(0.05) # esperar tiempo de configuracion
 
             self.my_phaser._gpios.gpio_burst = 0
             self.my_phaser._gpios.gpio_burst = 1
             self.my_phaser._gpios.gpio_burst = 0
             # 2) Recepción y FFT
-            data = self.my_sdr.rx() # entender bien como funciona los chirps, si agranda la cantidad de datos recibidos, suponiendo que si lo hace
-            sum_data = data[0] + data[1] # canal 1 y canal 2
+            data = self.my_sdr.rx()
+            sum_data = data[0] + data[1] # canal 1 y canal 2 datos imaginarios
 
-            #self.get_logger().info(f"shape sum_data {sum_data.shape}")
-
+            #self.get_logger().info(f"shape sum_data: {sum_data.shape}")
 
             #rx_bursts = np.zeros((NUM_CHIRPS, GOOD_RAMP_SAMPLES), dtype=np.complex128) # rx_bursts limpio
             time_data = np.ones((NUM_CHIRPS, self.fft_size), dtype=np.complex128)*1e-10 # fft_data limpio
+            # se reemplazan los valores por los recibidos dejando un margen inicial en valores pequeños para solo considerar los GOOD_RAMP_SAMPLES
 
             for burst in range(NUM_CHIRPS): # para cada chirrido individual
                 # indicie inicial y final dentro del arreglo sum_data
@@ -395,18 +381,18 @@ class RadarNode(Node):
                 #burst_data = np.ones(self.fft_size, dtype=np.complex128)*1e-10 # arreglo con tamaño fft_size complejo con valores pequeños
                 #burst_slice = sum_data[start_index:stop_index] * self.win_funct
                 burst_slice = sum_data[start_index:stop_index]
-                #self.get_logger().info(f"{start_index}, {stop_index}")
+                #self.get_logger().info(f"start_index: {start_index} stop_index: {stop_index}")
+
                 # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
                 #burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
                 time_data[burst,self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
 
-            #avg_time = np.mean(time_data[1:,:], axis=0) # promediar entre filas, matiene las columnas
-            avg_time = np.mean(time_data, axis=0)
+            avg_time = np.mean(time_data[:,:], axis=0) 
             #sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time))) # fft y shift a centro
             # redundancia en valor absoluto
             #s_mag = np.abs(sp) / self.sum_win_funct # calcula valor absoluto y aplica una normalización por la suma de los coeficientes de la ventana
             #s_mag = sp / self.sum_win_funct
-            #s_mag = np.maximum(s_mag, 10 ** (-15)) # pone un piso minimo para evitar valores o en s_mag y posteriormente -inf con el logaritmo
+            #s_mag = np.maximum(s_mag, 10 ** (-15)) # pone un piso minimo para evitar valores pequeños en s_mag y posteriormente -inf con el logaritmo
             # espectro en magnitud lineal (valor absoluto de la FFT, ya normalizado por la ventana)
             # normalizando respecto al valor máximo posible de la ADC (full-scale) 12 bits con signo
             # Por convención, la magnitud en decibeles de una señal se calcula como
@@ -431,26 +417,11 @@ class RadarNode(Node):
         #np.save(save_path, mat)
         #self.get_logger().info(f'Datos guardados en {save_path}')
 
-        # publicar ros
-        #msg = RadarData()
-        #msg.header = Header()
-        #msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
-        #msg.header.frame_id = 'radar_sensor'
-        #msg.rows = mat.shape[0]
-        #msg.cols = mat.shape[1]
-        #msg.dtype = str(mat.dtype) # "float64"
-        #msg.data = mat.flatten().tolist() # aplanado
-        #self.pub_matrix.publish(msg)
-        #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
-
-        #self.ready_for_allow = True
-        #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
         return mat
 
+    # hace un barrido del phaser sin mover el PTU
     def do_chirp(self):
-        #radar_data_matriz = [] # matriz de data con tamaño (len_angles, len_data)
         theta = 0
-        
         # 1) direccion del haz
         # Fórmula:
         # Phase delta = 2*Pi*d*sin(theta)/lambda = 2*Pi*d*sin(theta)*f/c
@@ -460,6 +431,7 @@ class RadarNode(Node):
         # introduce un error el cual es pequeño 
         phase_delta = (2*np.pi * SIGNAL_FREQ_PHASER_RECEPTION * ELEMENT_SPACING * np.sin(np.radians(theta))) / C
         self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
+
         #time.sleep(0.05)
 
         self.my_phaser._gpios.gpio_burst = 0
@@ -469,37 +441,32 @@ class RadarNode(Node):
         data = self.my_sdr.rx()
         sum_data = data[0] + data[1] # canal 1 y canal 2
 
-        #self.get_logger().info(f"shape sum_data {sum_data.shape}")
+        #self.get_logger().info(f"shape sum_data: {sum_data.shape}")
 
         #rx_bursts = np.zeros((NUM_CHIRPS, GOOD_RAMP_SAMPLES), dtype=complex)
         time_data = np.ones((NUM_CHIRPS, self.fft_size), dtype=np.complex128) # fft_data limpio
+        # se reemplazan los valores por los recibidos dejando un margen inicial en valores pequeños para solo considerar los GOOD_RAMP_SAMPLES
 
         for burst in range(NUM_CHIRPS): # para cada chirrido individual
             # indicie inicial y final dentro del arreglo sum_data
             start_index = self.start_offset_samples + burst*self.num_samples_frame
             stop_index = start_index + GOOD_RAMP_SAMPLES
-            #rx_bursts[burst] = sum_data[start_index:stop_index]
             #burst_data = np.ones(self.fft_size, dtype=complex)*1e-10 # arreglo con tamaño fft_size complejo con valores pequeños
-            #win_funct = np.blackman(len(rx_bursts[burst])) # ventana blackman
-            #win_funct = np.ones(len(rx_bursts[burst]))
-            #win_funct = np.ones(len(rx_bursts[burst])) # ventana rectangular
-            # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
             #burst_slice = sum_data[start_index:stop_index] * self.win_funct
             burst_slice = sum_data[start_index:stop_index]
+
+            # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
             #burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = rx_bursts[burst]*win_funct
             time_data[burst,self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
         
-        #avg_time = np.mean(time_data[1:,:], axis=0)
-        avg_time = np.mean(time_data, axis=0) # promediar entre filas, matiene las columnas
+        avg_time = np.mean(time_data[:,:], axis=0) # promediar entre filas, matiene las columnas
         #sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time)))
         # redundancia en valor absoluto
         #s_mag = np.abs(sp) / self.sum_win_funct
         #s_mag = np.maximum(s_mag, 10 ** (-15))
         #s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
-        #radar_data_matriz.append(s_dbfs)
 
-        #radar_data_matriz.append(avg_time)
-        mat = np.vstack(avg_time) # shape (barrido en angulos, tamaño fft)
+        mat = np.vstack(avg_time) # shape (1, tamaño fft)
         
         # GUARDAR DATA .npy
         #save_dir = '/home/dammr/Desktop/UC_SmartFarmRadar/capturas_radar' # Carpeta donde guardar
@@ -511,22 +478,6 @@ class RadarNode(Node):
         #np.save(save_path, mat)
         #self.get_logger().info(f'Datos guardados en {save_path}')
 
-        # publicar ros
-        #msg = RadarData()
-        #msg.header = Header()
-        #msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
-        #msg.header.frame_id = 'radar_sensor'
-        #msg.rows = mat.shape[0]
-        #msg.cols = mat.shape[1]
-        #msg.dtype = str(mat.dtype) # "float64"
-        #msg.data = mat.flatten().tolist() # aplanado
-
-        #self.get_logger().info(f"msg.dtype {mat.dtype}")
-        #self.pub_matrix.publish(msg)
-        #self.get_logger().info(f"Publicado Matrix2D: {msg.rows} {msg.cols}, dtype={msg.dtype}")
-
-        #self.ready_for_allow = True
-        #self.get_logger().info('Barrido completado: Habilitado para recibir /allow_sweep True')
         return mat
 
 def main(args=None):
