@@ -6,25 +6,26 @@ from radar_msg.msg import RadarData
 from radar_msg.action import RadarBeamform
 from radar_package.parametros import *
 
-class BeamformRepeat(Node):
+class RadarScan(Node):
     def __init__(self):
-        super().__init__('radar_call_repeat')
+        super().__init__('radar_scan')
 
-        # Parámetros
+        # ----------------- Parámetros -----------------
         self.declare_parameter('pan_deg', 0)
         self.declare_parameter('tilt_deg', 0)
         self.declare_parameter('repeat', REPEAT_CAPTURE) # -1 para infinitas capturas
-        self.declare_parameter('wait_server_timeout_s', 10.0)
+        self.declare_parameter('wait_timeout_server_s', WAIT_TIMEOUT_SERVER)
 
-        self.pan_deg = int(self.get_parameter('pan_deg').value)
-        self.tilt_deg = int(self.get_parameter('tilt_deg').value)
-        self.repeat = int(self.get_parameter('repeat').value)
-        self.wait_timeout = float(self.get_parameter('wait_server_timeout_s').value)
+        p = self.get_parameter
+        self.pan_deg = int(p('pan_deg').value)
+        self.tilt_deg = int(p('tilt_deg').value)
+        self.repeat = int(p('repeat').value)
+        self.wait_timeout = float(p('wait_timeout_server_s').value)
 
         self.infinite = (self.repeat <= 0) # <=0 => infinito
         self.client = ActionClient(self, RadarBeamform, 'radar_beamform')
 
-        self._radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
+        self.radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
 
         self.current_iter = 0
         rep_msg = "inf" if self.infinite else str(self.repeat)
@@ -39,29 +40,30 @@ class BeamformRepeat(Node):
         self.send_goal()
 
     def send_goal(self):
-        if (not self.infinite) and (self.current_iter > self.repeat):
+        if (not self.infinite) and (self.current_iter > self.repeat): # se cumplieron todas las repeticiones
             self.get_logger().info("Todas las repeticiones completadas.")
             rclpy.shutdown()
             return
 
-        goal = RadarBeamform.Goal()
+        goal = RadarBeamform.Goal() # objetivo
         goal.pan_deg = self.pan_deg
         goal.tilt_deg = self.tilt_deg
 
         self.current_iter += 1
         tag = f"[{self.current_iter}/{self.repeat}]" if not self.infinite else f"[{self.current_iter}]"
-        self.get_logger().info(f"{tag} radar call → pan={self.pan_deg}°, tilt={self.tilt_deg}°")
+        self.get_logger().info(f"{tag} radar callback en pan={self.pan_deg}°, tilt={self.tilt_deg}°")
 
+        # # se envia el objetivo y se registra el callback de retroalimentacion
         send_future = self.client.send_goal_async(goal, feedback_callback=self.feedback_cb)
         send_future.add_done_callback(self.goal_response_cb)
 
     def feedback_cb(self, fb):
-        msg = getattr(fb.feedback, 'status', 'ejecutando…')
+        msg = getattr(fb.feedback, 'status', 'ejecutando…') # si no detecta el campo status devuelve ejecutando
         self.get_logger().info(f"[Feedback] {msg}")
 
     def goal_response_cb(self, future):
         try:
-            goal_handle = future.result()
+            goal_handle = future.result() # GoalHandle manejo de objetivo
         except Exception as e:
             self.get_logger().error(f"Error al enviar goal: {e!r}")
             # en bucle infinito, reintenta; si no, termina
@@ -77,12 +79,16 @@ class BeamformRepeat(Node):
             self.send_goal() # intenta siguiente iteración
             return
 
+        # se pide el resultado y se registra el callback
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(self.result_cb)
 
     def result_cb(self, future):
         try:
             result = future.result().result
+            # fut2.result() -> GetResult.Response
+            # .result -> el objeto Result de la acción
+
         except Exception as e:
             self.get_logger().error(f"Error recibiendo resultado: {e!r}")
             if self.infinite:
@@ -92,12 +98,13 @@ class BeamformRepeat(Node):
                 rclpy.shutdown()
             return
 
-        ok = getattr(result, 'success', True)
+        ok = getattr(result, 'success', True) # si existe el campo devuelve el resultado, si no devuelve el bool true
         message = getattr(result, 'message', '')
+
         if ok:
             rd = getattr(result, 'radar_data', None)
             if rd is not None:
-                # <- NUEVO: publicar la medición recibida
+                # publicar la medición recibida
                 self._radar_pub.publish(rd)
                 self.get_logger().info(
                     f"Beamforming OK. {message} | publicado RadarData {rd.rows}x{rd.cols} (dtype={rd.dtype})"
@@ -107,13 +114,13 @@ class BeamformRepeat(Node):
         else:
             self.get_logger().warn(f"Beamforming falló. {message}")
 
-        # al terminar un goal → lanzar siguiente repetición
+        # al terminar un goal lanzar la siguiente repetición
         self.send_goal()
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BeamformRepeat()
+    node = RadarScan()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -122,7 +129,6 @@ def main(args=None):
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()

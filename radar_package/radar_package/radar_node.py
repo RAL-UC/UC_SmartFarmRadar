@@ -14,7 +14,7 @@ import os # sistema
 from ament_index_python.packages import get_package_share_directory # archivos de recursos
 from radar_package.parametros import * # importar parametros
 from rclpy.action import ActionServer # acciones de ros2
-from radar_msg.action import Beamform #accion de beamforming
+from radar_msg.action import RadarBeamform #accion de beamforming
 
 # recursos de calibracion
 pkg_share = get_package_share_directory('radar_package')
@@ -53,7 +53,7 @@ class RadarNode(Node):
 
         # servidor basado en acciones
         # tipo de accion, nombre de la accion, funcion callback
-        self._beamform_server = ActionServer(self, Beamform, 'radar_beamform', self.execute_beamform_cb)
+        self._beamform_server = ActionServer(self, RadarBeamform, 'radar_beamform', self.execute_beamform_cb)
 
         # ventana que multiplica los valores antes de la transformada de fourier
         #self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
@@ -282,7 +282,7 @@ class RadarNode(Node):
         tilt = int(goal_handle.request.tilt_deg)
         self.get_logger().info(f"[Radar] Goal: pan={pan}°, tilt={tilt}°")
 
-        feedback = Beamform.Feedback()
+        feedback = RadarBeamform.Feedback()
         feedback.status = "Inicializando adquisición"
         goal_handle.publish_feedback(feedback)
 
@@ -291,7 +291,7 @@ class RadarNode(Node):
             feedback.status = "Hardware no listo; abortando"
             goal_handle.publish_feedback(feedback)
             goal_handle.abort()
-            result = Beamform.Result()
+            result = RadarBeamform.Result()
             result.success = False
             result.message = "Hardware no listo"
             return result
@@ -329,7 +329,7 @@ class RadarNode(Node):
             feedback.status = "OK, devolviendo resultado"
             goal_handle.publish_feedback(feedback)
 
-            result = Beamform.Result()
+            result = RadarBeamform.Result()
             result.success = True
             result.message = f"Beamforming OK (pan={pan}°, tilt={tilt}°)"
             result.radar_data = msg
@@ -338,7 +338,7 @@ class RadarNode(Node):
 
         except Exception as e:
             self.get_logger().error(f"Error en beamforming: {e}")
-            result = Beamform.Result()
+            result = RadarBeamform.Result()
             result.success = False # faltara reconexion ?
             result.message = f"Error: {e}"
             # result.radar_data vacío

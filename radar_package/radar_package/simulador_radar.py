@@ -9,7 +9,7 @@ from rclpy.action import ActionServer
 
 from std_msgs.msg import Header
 from radar_msg.msg import RadarData
-from radar_msg.action import Beamform
+from radar_msg.action import RadarBeamform
 
 REPO_ROOT = Path.cwd() / "UC_SmartFarmRadar"
 DEFAULT_OUTPUT = str(REPO_ROOT / "datos" / "medicion_fondo_centro.npy")
@@ -39,7 +39,7 @@ class RadarSimServer(Node):
         # Servidor de acción
         self.server = ActionServer(
             self,
-            Beamform,
+            RadarBeamform,
             'radar_beamform',
             execute_callback=self.execute_cb
         )
@@ -68,7 +68,7 @@ class RadarSimServer(Node):
 
         # Completar acción
         goal_handle.succeed()
-        result = Beamform.Result()
+        result = RadarBeamform.Result()
         result.success = True
         result.message = "Simulación OK"
         result.radar_data = msg

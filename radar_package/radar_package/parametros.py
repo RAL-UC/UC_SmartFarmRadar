@@ -79,6 +79,7 @@ CFAR_METHOD = "average"
 MIN_RANGE_M = 0
 MAX_RANGE_M = 5
 
+# cantidad de capturas run con active_radar
 REPEAT_CAPTURE = -1
 
 WAIT_TIMEOUT_SERVER = 30 # 30 s
