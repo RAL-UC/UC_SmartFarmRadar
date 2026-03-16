@@ -1,6 +1,7 @@
-cmake_minimum_required(VERSION 3.8)
-project(ptu_driver)
+cmake_minimum_required(VERSION 3.8) # version
+project(ptu_driver) # define nombre del proyecto
 
+# advertencias de compilacion
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -30,6 +31,7 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# bloque de testing
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

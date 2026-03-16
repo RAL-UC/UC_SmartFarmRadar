@@ -1,8 +1,6 @@
 # Goal
 int32 pan_deg           # si viene vacío, usa por defecto self.ptu_angles
 int32 tilt_deg
-#int32 tolerance_steps        # p.ej. 0
-#float32 query_timeout_s      # p.ej. 10.0
 
 ---
 # Result

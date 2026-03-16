@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import time
-import re
-from threading import Event
+import time # manejo del tiempo
+import re # manejo de strings
+from threading import Event # sincronizacion entre hilos
 
 import rclpy
 from rclpy.node import Node
@@ -10,7 +10,7 @@ from rclpy.executors import MultiThreadedExecutor
 
 from std_msgs.msg import String
 from radar_msg.action import PtuSweep
-#import asyncio
+#import asyncio # corrutinas
 
 # convencion RADAR
 # positivo derecha
@@ -33,6 +33,7 @@ from radar_msg.action import PtuSweep
 # 90, 75, 60, 45, 30, 15, 0
 # 1750, 1361, 1167, 875, 583, 292, 0
 
+# conversion de metricas
 def grados_a_pasos(grados: int) -> int:
     """Convierte grados a pasos para PTU-C46 (185.1428 arcsec/paso ≈ 0.0514285°)."""
     resolucion_grados = 185.1428 / 3600 # ≈ 0.0514285°
@@ -49,16 +50,18 @@ class PtuRoutineNode(Node):
     def __init__(self):
         super().__init__('ptu_node')
         # topicos
-        self.cmd_pub = self.create_publisher(String, '/ptu_cmd', 10)
-        self.rx_sub = self.create_subscription(String, '/ptu_response', self.rx_cb, 50)
+        self.cmd_pub = self.create_publisher(String, '/ptu_cmd', 10) # publicar comandos
+        self.rx_sub = self.create_subscription(String, '/ptu_response', self.rx_cb, 50) # respuestas del PTU
 
+        # objetivos predefinidos
         #self.ptu_angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
         #self.current_index = 0
 
-        self._active_goal = None
-        self._done_evt = Event()
-        self._success = False
-        self._final_message = "OK"
+        self.active_goal = None # objetivo
+        self.done_evt = Event() # control de eventos
+        #self.cancel_evt = Event()
+        self.success = False # estado de evento
+        self.final_message = "OK" # feedback msg
 
         # objetivos en pasos
         self.target_pan_steps  = None
@@ -71,57 +74,59 @@ class PtuRoutineNode(Node):
         self.waiting = False # esperando respuesta a 'pp' o 'tp
         self.query_timer = None # timer de consulta periódica
         self.query_started = None # timestamp de inicio
-        self._last_cmd_send_time = None
+        self.last_cmd_send_time = None # ultimo comando enviado
 
         self.query_period = 1 # s entre consultas 'pp'
         self.command_resend_period = 2 # reenvío de setpoint mientras consulto
         self.query_timeout_s = 60.0 # timeout total para confirmar que se llego a la posicion objetivo
         self.tolerance_steps = 0 # tolerancia de coincidencia en pasos
 
-        self._pan_re = re.compile(r'Current\s+Pan\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
-        self._tilt_re = re.compile(r'Current\s+Tilt\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
+        # feedback
+        self.pan_re = re.compile(r'Current\s+Pan\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
+        self.tilt_re = re.compile(r'Current\s+Tilt\s+position\s+is\s+(-?\d+)', re.IGNORECASE)
 
-        self._server = ActionServer(
+        self.server = ActionServer(
             self,
             PtuSweep,
             'ptu_sweep',
             execute_callback=self.execute_cb,
-            goal_callback=self.goal_cb,
-            cancel_callback=self.cancel_cb
+            goal_callback=self.goal_cb
+            #cancel_callback=self.cancel_cb
         )
 
-    # ActionServer: aceptación/cancelación
     def goal_cb(self, goal_request):
+        """ActionServer: aceptación/cancelación"""
         # Rechaza si ya hay una goal activa (este server es mono-objetivo)
-        if self._active_goal is not None:
+        if self.active_goal is not None:
             self.get_logger().warn("PTU ocupado: rechazando nueva meta.")
-            return GoalResponse.REJECT
-        return GoalResponse.ACCEPT
+            return GoalResponse.REJECT # se ignora
+        return GoalResponse.ACCEPT # se acepta
 
-    def cancel_cb(self, goal_handle):
-        self.get_logger().info("Solicitud de cancelación recibida.")
-        # Aquí podrías agregar un flag para abortar la espera; por ahora se permite.
-        return CancelResponse.ACCEPT
+    #def cancel_cb(self, goal_handle):
+    #    self.get_logger().info("Solicitud de cancelación recibida.")
+    #    #self.cancel_evt.set() # avisa que hay cancelación
+    #    #self.stop_query_loop() # detiene timers
+    #    #self.finish(False, "Cancelado por el usuario")
+    #    return CancelResponse.ACCEPT
     
     async def execute_cb(self, goal_handle):
-        self._active_goal = goal_handle
-        self._done_evt.clear()
-        self._success = False
-        self._final_message = "OK"
+        self.active_goal = goal_handle
+        self.done_evt.clear()
+        #self.cancel_evt.clear()
+        self.success = False
+        self.final_message = "OK"
 
         pan_deg = goal_handle.request.pan_deg
         tilt_deg = goal_handle.request.tilt_deg
 
         self.target_pan_steps  = grados_a_pasos(pan_deg)
         self.target_tilt_steps = grados_a_pasos(tilt_deg)
-        #self.tolerance_steps = goal_handle.request.tolerance_steps or self.tolerance_steps
-        #self.query_timeout_s = goal_handle.request.query_timeout_s or self.query_timeout_s
 
         # manda movimiento
-        self._publish_feedback(pan_deg, tilt_deg, f"Moviendo a pan={pan_deg}°, tilt={tilt_deg}°")
-        self._send_cmd(f"pp{self.target_pan_steps}")
-        self._send_cmd(f"tp{self.target_tilt_steps}")
-        self._last_cmd_send_time = time.monotonic()
+        self.publish_feedback(pan_deg, tilt_deg, f"Moviendo a pan={pan_deg}°, tilt={tilt_deg}°")
+        self.send_cmd(f"pp{self.target_pan_steps}")
+        self.send_cmd(f"tp{self.target_tilt_steps}")
+        self.last_cmd_send_time = time.monotonic()
 
         # Inicia verificación
         self.waiting = True
@@ -129,33 +134,45 @@ class PtuRoutineNode(Node):
         self.last_tilt_steps = None
         self.query_started = time.monotonic()
         if self.query_timer is None:
-            self.query_timer = self.create_timer(self.query_period, self._query_tick)
+            self.query_timer = self.create_timer(self.query_period, self.query_tick)
 
         # Primera consulta
-        self._send_cmd('pp')
-        self._send_cmd('tp')
+        self.send_cmd('pp')
+        self.send_cmd('tp')
 
         # Espera a que termine (éxito o timeout/abort)
-        self._done_evt.wait()
+        self.done_evt.wait()
+        #while not self.done_evt.is_set():
+        #    if self.cancel_evt.is_set():
+        #        goal_handle.canceled()
+        #        self.active_goal = None
+        #        result = PtuSweep.Result()
+        #        result.success = False
+        #        result.message = "Cancelado"
+        #        return result
+        #    time.sleep(0.05)
 
         # resultado
         result = PtuSweep.Result()
-        result.success = self._success
-        result.message = self._final_message
+        result.success = self.success
+        result.message = self.final_message
 
-        if self._success:
+        if self.success:
             goal_handle.succeed()
         else:
             goal_handle.abort()
 
-        self._active_goal = None
+        self.active_goal = None
         return result
     
-    def _query_tick(self):
-        if not self.waiting:
+    def query_tick(self):
+        #if self.cancel_evt.is_set():
+        #    return
+    
+        if not self.waiting: # si no hay ningun proceso en espera
             return
         
-        # ¿llegó?
+        # ¿llegó? -> se cumple el objetivo de tolerancia
         pan_ok  = (self.last_pan_steps  is not None and
                    abs(self.last_pan_steps  - self.target_pan_steps)  <= self.tolerance_steps)
         tilt_ok = (self.last_tilt_steps is not None and
@@ -164,64 +181,65 @@ class PtuRoutineNode(Node):
         if pan_ok and tilt_ok:
             pan_deg  = pasos_a_grados(self.last_pan_steps)
             tilt_deg = pasos_a_grados(self.last_tilt_steps)
-            self._publish_feedback(pan_deg, tilt_deg, f"Llegó a pan={pan_deg}°, tilt={tilt_deg}°")
-            self._stop_query_loop()
-            self._finish(True, "OK")
+            self.publish_feedback(pan_deg, tilt_deg, f"Llegó a pan={pan_deg}°, tilt={tilt_deg}°")
+            self.stop_query_loop() # ciclo de pregunta
+            self.finish(True, "OK")
             return
 
         # timeout
-        elapsed = time.monotonic() - self.query_started
+        elapsed = time.monotonic() - self.query_started # tiempo transcurrido
+        # si se cumple el timeout hay una retroalimentacion
         if elapsed > self.query_timeout_s:
             aprox_pan = pasos_a_grados(self.last_pan_steps) if self.last_pan_steps is not None else 0
             aprox_tilt = pasos_a_grados(self.last_tilt_steps) if self.last_tilt_steps is not None else 0
-            self._publish_feedback(aprox_pan, aprox_tilt,
+            self.publish_feedback(aprox_pan, aprox_tilt,
                                    f"Timeout verificando llegada a pan={self.target_pan_steps}, tilt={self.target_tilt_steps}")
-            self._stop_query_loop()
-            self._finish(False, "Timeout")
+            self.stop_query_loop()
+            self.finish(False, "Timeout")
             return
 
         # re-consulta y reinyecta setpoint
-        self._send_cmd('pp')
-        self._send_cmd('tp')
+        self.send_cmd('pp')
+        self.send_cmd('tp')
         now = time.monotonic()
-        if self._last_cmd_send_time is not None and (now - self._last_cmd_send_time) >= self.command_resend_period:
-            self._send_cmd(f'pp{self.target_pan_steps}')
-            self._send_cmd(f'tp{self.target_tilt_steps}')
-            self._last_cmd_send_time = now
+        if self.last_cmd_send_time is not None and (now - self.last_cmd_send_time) >= self.command_resend_period:
+            self.send_cmd(f'pp{self.target_pan_steps}')
+            self.send_cmd(f'tp{self.target_tilt_steps}')
+            self.last_cmd_send_time = now
 
-    def _stop_query_loop(self):
+    def stop_query_loop(self):
         self.waiting = False
         if self.query_timer is not None:
             self.query_timer.cancel()
             self.query_timer = None
-        self._last_cmd_send_time = None
+        self.last_cmd_send_time = None
     
-    def _publish_feedback(self, pan_deg: int, tilt_deg: int, status: str):
-        if self._active_goal:
+    def publish_feedback(self, pan_deg: int, tilt_deg: int, status: str):
+        if self.active_goal:
             fb = PtuSweep.Feedback()
             fb.current_pan_deg  = int(pan_deg)
             fb.current_tilt_deg = int(tilt_deg)
             fb.status = status
-            self._active_goal.publish_feedback(fb)
+            self.active_goal.publish_feedback(fb)
     
     # publicar comando
-    def _send_cmd(self, text: str):
+    def send_cmd(self, text: str):
         msg = String()
         msg.data = text
         self.cmd_pub.publish(msg)
 
-    def _finish(self, ok: bool, msg: str):
-        self._success = ok
-        self._final_message = msg
-        self._done_evt.set()
+    def finish(self, ok: bool, msg: str):
+        self.success = ok
+        self.final_message = msg
+        self.done_evt.set()
 
     def rx_cb(self, msg: String):
         line = msg.data.strip()
         # busca entero con signo en la línea
-        m_pan  = self._pan_re.search(line)
-        m_tilt = self._tilt_re.search(line)
+        m_pan  = self.pan_re.search(line)
+        m_tilt = self.tilt_re.search(line)
         if m_pan:
-            self.last_pan_steps = int(m_pan.group(1))
+            self.last_pan_steps = int(m_pan.group(1)) # resultado del match
         if m_tilt:
             self.last_tilt_steps = int(m_tilt.group(1))
 

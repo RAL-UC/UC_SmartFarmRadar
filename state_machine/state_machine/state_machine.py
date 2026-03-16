@@ -88,8 +88,6 @@ class StateMachine(Node):
         # mandamos SOLO el ángulo actual
         goal.pan_deg  = pan
         goal.tilt_deg = tilt
-        #goal.tolerance_steps = 0
-        #goal.query_timeout_s = 8.0
 
         self.get_logger().info(
             f"[{self.count+1}/{self.total}] PTU -> pan={pan}°, tilt={tilt}° | pose_id={self.bunker_pose_id}")
