@@ -17,18 +17,18 @@ def generate_launch_description():
             #}]
         ),
         Node(
-            package='ptu_package',
-            executable='ptu_node',
-            name='ptu_node',
+            package='ptu_driver',
+            executable='ptu_node_driver', 
+            name='ptu_node_driver',
             output='screen',
             parameters=[{
-                'serial_port': '/dev/ttyUSB0' # para pc bunker debe estar en ttyUSB1, pc host ttyUSB0
+                'serial_port': '/dev/ttyUSB0' # para pc bunker debe estar en ttyUSB1, pc host ttyUSB0 -> identificado de forma manual
             }]
         ),
         Node(
-            package='ptu_routine',
-            executable='ptu_routine_node',
-            name='ptu_routine_node',
+            package='ptu_package',
+            executable='ptu_node',
+            name='ptu_node',
             output='screen'
         ),
         # ------------------------------------------------------------

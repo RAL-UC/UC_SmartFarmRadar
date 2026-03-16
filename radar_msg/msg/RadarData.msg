@@ -14,6 +14,3 @@ int32 pan_deg
 int32 tilt_deg
 
 uint32 bunker_pose_id
-
-#uint32 start_offset_time 
-#uint32 start_offset_samples  

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(ptu_package)
+project(ptu_driver)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -14,19 +14,19 @@ find_package(std_msgs REQUIRED)
 include_directories(include)
 
 # Crear el ejecutable
-add_executable(ptu_node
-  src/ptu_node.cpp
+add_executable(ptu_node_driver
+  src/ptu_node_driver.cpp
 )
 
 # Agregar las dependencias del ejecutable
-ament_target_dependencies(ptu_node
+ament_target_dependencies(ptu_node_driver
   rclcpp
   std_msgs
 )
 
 # Instalar el ejecutable para poder usar `ros2 run`
 install(TARGETS
-  ptu_node
+  ptu_node_driver
   DESTINATION lib/${PROJECT_NAME}
 )
 

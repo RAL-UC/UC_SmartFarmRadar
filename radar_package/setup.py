@@ -7,7 +7,7 @@ info_version = '0.0.0'
 info_autor = 'Diego Muñoz Rojas'
 info_email = 'dammr@uc.cl'
 info_descripcion = 'Paquete que contiene los nodos de procesamiento y adquisición de datos del radar'
-info_licencia = 'TODO: License declaration'
+info_licencia = 'MIT License'
 
 setup(
     name=package_name,

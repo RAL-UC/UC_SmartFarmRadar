@@ -47,7 +47,7 @@ def pasos_a_grados(pasos: int) -> int:
 
 class PtuRoutineNode(Node):
     def __init__(self):
-        super().__init__('ptu_routine_node')
+        super().__init__('ptu_node')
         # topicos
         self.cmd_pub = self.create_publisher(String, '/ptu_cmd', 10)
         self.rx_sub = self.create_subscription(String, '/ptu_response', self.rx_cb, 50)

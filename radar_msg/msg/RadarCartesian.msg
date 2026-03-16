@@ -1,9 +1,11 @@
 std_msgs/Header header
-builtin_interfaces/Time[] stamps
+builtin_interfaces/Time[] stamps # marcas de tiempo
+
 float32[] x
 float32[] y
 float32[] z
 
+# datos de GPS
 float32[] gps_e
 float32[] gps_n
 float32[] gps_alt

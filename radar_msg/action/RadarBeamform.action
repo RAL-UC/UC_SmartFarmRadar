@@ -1,5 +1,6 @@
 # Goal
-int32 pan_deg # ángulo en grados para el que se solicita el beamforming
+# ángulo en grados para el que se solicita el beamforming
+int32 pan_deg
 int32 tilt_deg
 
 ---
