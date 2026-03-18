@@ -1,0 +1,11 @@
+PTU:
+  ros__parameters:
+    # PTU
+    # mediciones en grados
+    ptu_pan_min_deg: -90
+    ptu_pan_max_deg: 90
+    ptu_pan_step_deg: 15
+
+    ptu_tilt_min_deg: -20
+    ptu_tilt_max_deg: 20
+    ptu_tilt_step_deg: 5

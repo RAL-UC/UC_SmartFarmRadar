@@ -4,7 +4,7 @@ from rclpy.node import Node
 from rclpy.action import ActionServer, GoalResponse
 
 from radar_msg.action import PtuSweep  # ajusta el import si está en otro paquete
-from radar_package.parametros import *
+#from radar_package.parametros import *
 
 class PtuSimServer(Node):
     """
@@ -17,22 +17,23 @@ class PtuSimServer(Node):
     def __init__(self):
         super().__init__('ptu_sim')
 
-        # parámetros básicos
-        self.declare_parameter('angle_min_ptu_pan', ANGLE_MIN_PTU_PAN)
-        self.declare_parameter('angle_max_ptu_pan', ANGLE_MAX_PTU_PAN)
-        self.declare_parameter('angle_step_ptu_pan', ANGLE_STEP_PTU_PAN)
+        # parámetros
+        # ptu.yaml
+        self.declare_parameter('ptu_pan_min_deg', -90)
+        self.declare_parameter('ptu_pan_max_deg', 90)
+        self.declare_parameter('ptu_pan_step_deg', 15)
+        self.declare_parameter('ptu_tilt_min_deg', -20)
+        self.declare_parameter('ptu_tilt_max_deg', 20)
+        self.declare_parameter('ptu_tilt_step_deg', 5)
 
-        self.declare_parameter('angle_min_ptu_tilt', ANGLE_MIN_PTU_TILT)
-        self.declare_parameter('angle_max_ptu_tilt', ANGLE_MAX_PTU_TILT)
-        self.declare_parameter('angle_step_ptu_tilt', ANGLE_STEP_PTU_TILT)
-
-        p = self.get_parameter
-        self.angle_min_ptu_pan = int(p('angle_min_ptu_pan').value)
-        self.angle_max_ptu_pan = int(p('angle_max_ptu_pan').value)
-        self.angle_step_ptu_pan = int(p('angle_step_ptu_pan').value)
-        self.angle_min_ptu_tilt = int(p('angle_min_ptu_tilt').value)
-        self.angle_max_ptu_tilt = int(p('angle_max_ptu_tilt').value)
-        self.angle_step_ptu_tilt = int(p('angle_step_ptu_tilt').value)
+        # valores
+        # ptu.yaml
+        self.ptu_pan_min_deg  = self.get_parameter("ptu_pan_min_deg").value
+        self.ptu_pan_max_deg = self.get_parameter("ptu_pan_max_deg").value
+        self.ptu_pan_step_deg  = self.get_parameter("ptu_pan_step_deg").value
+        self.ptu_tilt_min_deg  = self.get_parameter("ptu_tilt_min_deg").value
+        self.ptu_tilt_max_deg = self.get_parameter("ptu_tilt_max_deg").value
+        self.ptu_tilt_max_deg  = self.get_parameter("ptu_tilt_step_deg").value
 
         # Servidor de acción
         self._server = ActionServer(

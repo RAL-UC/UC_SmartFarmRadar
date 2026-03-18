@@ -4,8 +4,8 @@ from rclpy.node import Node
 import numpy as np
 import matplotlib.pyplot as plt
 from radar_msg.msg import RadarData
-from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
-from radar_package.parametros import *
+from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
+#from radar_package.parametros import *
 import time
 
 # debo mejorar recurso de datos al infinito
@@ -14,6 +14,45 @@ path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infini
 class RadarDataSubscriber(Node):
     def __init__(self):
         super().__init__('subscribe_radar_data')
+
+        # parametros
+        # radar.yaml
+        self.declare_parameter('sample_rate_hz', 0.6e6)
+        self.declare_parameter('signal_freq_hz', 100e3)
+        self.declare_parameter('begin_offset_time_s', 0.00005)
+        self.declare_parameter('speed_of_light', 3e8)
+        self.declare_parameter('slope_hz_per_s', 1.0e12)
+        self.declare_parameter('rbeam_angledeg_min', -80)
+        self.declare_parameter('rbeam_angledeg_max', 80)
+        self.declare_parameter('rbeam_angledeg_step', 1)
+        self.declare_parameter('fov_deg', 160)
+        
+        # processing.yaml
+        self.declare_parameter('idx_attenuation', 8)
+        self.declare_parameter('n_maps', 13)
+        self.declare_parameter('global_angles', 341)
+        self.declare_parameter('angle0_deg', -90)
+        self.declare_parameter('step_deg_ptu', 15)
+
+        # carga de valores
+        # radar.yaml
+        self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
+        self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
+        self.begin_offset_time_s = self.get_parameter('begin_offset_time_s').value
+        self.speed_of_light = self.get_parameter('speed_of_light').value
+        self.slope_hz_per_s = self.get_parameter('slope_hz_per_s').value
+        self.rbeam_angledeg_min  = self.get_parameter('rbeam_angledeg_min').value
+        self.rbeam_angledeg_max = self.get_parameter('rbeam_angledeg_max').value
+        self.rbeam_angledeg_step  = self.get_parameter('rbeam_angledeg_step').value
+        self.fov_deg  = self.get_parameter('fov_deg').value
+        
+        # processing.yaml
+        self.idx_attenuation  = self.get_parameter('idx_attenuation').value
+        self.n_maps  = self.get_parameter('n_maps').value
+        self.global_angles = self.get_parameter('global_angles').value
+        self.angle0_deg = self.get_parameter('angle0_deg').value
+        self.step_deg_ptu = self.get_parameter('step_deg_ptu').value
+
         self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
         # inicializar ventana de Matplotlib
         plt.ion() # modo interactivo
@@ -23,20 +62,11 @@ class RadarDataSubscriber(Node):
 
         self.base_data = np.load(path_base_data) # banda base
 
-        # parámetros configurables
-        self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM) # grados
-        self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM) # grados
-        self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM) # grados
-
-        # leer parámetros
-        p = self.get_parameter
-        self.angle_min_radar_beam = p('angle_min_radar_beam').get_parameter_value().integer_value
-        self.angle_max_radar_beam = p('angle_max_radar_beam').get_parameter_value().integer_value
-        self.angle_step_radar_beam  = p('angle_step_radar_beam').get_parameter_value().integer_value
+        self.ptu_angles = self.angle0_deg + self.step_deg_ptu * np.arange(self.n_maps) # lista de angulos del pantilt
 
         # Funciones de conversión freq <-> range (eje inferior y superior en graficos)
-        self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2 * SLOPE)
-        self.distance_to_freq = lambda d: SIGNAL_FREQ + OFFSET + (d * 2 * SLOPE / C)
+        self.freq_to_distance = lambda f: (f - self.signal_freq_hz - self.begin_offset_time_s) * self.slope_hz_per_s / (2 * self.slope_hz_per_s)
+        self.distance_to_freq = lambda d: self.signal_freq_hz + self.begin_offset_time_s + (d * 2 * self.slope_hz_per_s / self.slope_hz_per_s)
         
         # figura para umbral CFAR, señal y detecciones vs distancia
         self.fig2 = None
@@ -45,7 +75,7 @@ class RadarDataSubscriber(Node):
         self.fig_accum = None
         self.im_accum = None
 
-        self.total_joints = N_MAPS # 180/15 + 1 -> desplazamiento de pantilt de 15 grados
+        self.total_joints = self.n_maps # 180/15 + 1 -> desplazamiento de pantilt de 15 grados
         self.joint_counter = 0
         self.current_col = 0
         self.accumulated_map = None
@@ -61,7 +91,7 @@ class RadarDataSubscriber(Node):
         #mat = mat - self.base_data # banda base
 
         # construir eje de frecuencia completo
-        freq = np.linspace(-SAMPLE_RATE / 2, SAMPLE_RATE / 2, n_bins, endpoint=False)
+        freq = np.linspace(-self.sample_rate_hz / 2, self.sample_rate_hz / 2, n_bins, endpoint=False)
         #freq_step = freq[1] - freq[0] # SAMPLE_RATE/n_bins
         #offset_idx = int(OFFSET / freq_step)
 
@@ -76,7 +106,7 @@ class RadarDataSubscriber(Node):
 
         # atenuar valores iniciales
         row_means = np.mean(filtered_data, axis=1)
-        filtered_data[:,:IDX_ATTENUATION] = row_means[:, np.newaxis]
+        filtered_data[:,:self.idx_attenuation] = row_means[:, np.newaxis]
 
         self.shape_data = [n_steering_angle, len(valid_indices)]
 
@@ -84,8 +114,8 @@ class RadarDataSubscriber(Node):
         self.joint_counter += 1
 
         # completados los N_MAPS
-        if self.joint_counter == N_MAPS:
-            self.get_logger().info(f"Se han unido los {N_MAPS} segmentos de captura")
+        if self.joint_counter == self.n_maps:
+            self.get_logger().info(f"Se han unido los {self.n_maps} segmentos de captura")
             accumulated_map = np.vstack(self.segmentos)
             combine_map = self.combine_radial_scans(accumulated_map)
             self.generate_detections(self, combine_map)
@@ -211,14 +241,14 @@ class RadarDataSubscriber(Node):
         return v[total_guard_ref:-total_guard_ref]
     
     def combine_radial_scans(self, accumulated_map):
-        half_fov = FOV / 2.0 # division del FOV
+        half_fov = self.fov_deg / 2.0 # division del FOV
         angulos_seg = [np.linspace(c - half_fov, c + half_fov, self.shape_data[0]) for c in self.ptu_angles] # angulos que cubre cada segmento
 
          # ángulos globales unificados (sin repeticiones)
         all_angles = np.concatenate(angulos_seg)
         global_angles = np.unique(all_angles)
 
-        combine_map = np.zeros((GLOBAL_ANGLES, self.shape_data[1])) # mapa global
+        combine_map = np.zeros((self.global_angles, self.shape_data[1])) # mapa global
 
         # para cada frecuencia
         for j in range(self.shape_data[1]): # de 0 a 321 
@@ -227,7 +257,7 @@ class RadarDataSubscriber(Node):
                 pesos = []
                 vals  = []
                 # revisar cada segmento
-                for i in range(N_MAPS): # de 0 a 12
+                for i in range(self.n_maps): # de 0 a 12
                     ai = angulos_seg[i] # extrae los angulos de un segmento 
                     if ai[0] <= ga <= ai[-1]: # revisa si el angulo global esta dentro de los espacios del segmento
                         idx = np.argmax(ai == ga) # encontrar el indice del angulo global dentro del segmento

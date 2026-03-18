@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 import os
 import threading
 import numpy as np
@@ -13,32 +12,28 @@ from rclpy.executors import MultiThreadedExecutor
 
 from ament_index_python.packages import get_package_share_directory
 from radar_msg.msg import RadarData
-from radar_package.parametros import *  # C, SLOPE, SIGNAL_FREQ, OFFSET, ANGLE_MIN, ANGLE_MAX, ANGLE_STEP, SAMPLE_RATE
+#from radar_package.parametros import *  # C, SLOPE, SIGNAL_FREQ, OFFSET, ANGLE_MIN, ANGLE_MAX, ANGLE_STEP, SAMPLE_RATE
 
-# ===========================
-# Utilidades ejes y mapeos
-# ===========================
-def freq_to_distance(f):
-    # misma convención que has usado en tus nodos
-    return (f - SIGNAL_FREQ - OFFSET) * C / (2.0 * SLOPE)
-
-def distance_to_freq(d):
-    return SIGNAL_FREQ + OFFSET + (d * 2.0 * SLOPE / C)
-
-def angle_to_index(angle, amin, amax, n_rows):
-    if n_rows <= 1 or amax == amin:
-        return 0
-    alpha = (angle - amin) / (amax - amin)
-    return int(np.clip(round(alpha * (n_rows - 1)), 0, n_rows - 1))
-
-# ===========================
 # Nodo ROS
-# ===========================
 class RadarWaterfall(Node):
     def __init__(self):
         super().__init__('radar_waterfall')
 
-        # -------- Parámetros ----------
+        # parámetros
+        # radar.yaml
+        self.declare_parameter('sample_rate_hz', 0.6e6)
+        self.declare_parameter('signal_freq_hz', 100e3)
+        self.declare_parameter('range_offset_hz', 10760.0)
+        self.declare_parameter('speed_of_light', 3e8)
+
+        # carga de valores
+        self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
+        self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
+        self.range_offset_hz = self.get_parameter('range_offset_hz').value
+        self.speed_of_light = self.get_parameter('speed_of_light').value
+
+
+
         self.declare_parameter('topic', 'radar_data')
         self.declare_parameter('num_slices', 100)           # alto del waterfall (n° de filas/tiempo)
         self.declare_parameter('db_low', -60.0)             # nivel bajo (dB) para clim
@@ -54,15 +49,14 @@ class RadarWaterfall(Node):
             default_fondo = ''
         self.declare_parameter('path_medicion_fondo', default_fondo)
 
-        p = self.get_parameter
-        self.topic         = p('topic').get_parameter_value().string_value
-        self.num_slices    = int(p('num_slices').get_parameter_value().integer_value)
-        self.db_low        = float(p('db_low').get_parameter_value().double_value)
-        self.db_high       = float(p('db_high').get_parameter_value().double_value)
-        self.angle_min     = int(p('angle_min').get_parameter_value().integer_value)
-        self.angle_max     = int(p('angle_max').get_parameter_value().integer_value)
-        self.angle_step    = int(p('angle_step').get_parameter_value().integer_value)
-        self.path_fondo    = p('path_medicion_fondo').get_parameter_value().string_value
+        self.topic = self.get_parameter('topic').get_parameter_value().string_value
+        self.num_slices = int(self.get_parameter('num_slices').get_parameter_value().integer_value)
+        self.db_low = float(self.get_parameter('db_low').get_parameter_value().double_value)
+        self.db_high = float(self.get_parameter('db_high').get_parameter_value().double_value)
+        self.angle_min = int(self.get_parameter('angle_min').get_parameter_value().integer_value)
+        self.angle_max = int(self.get_parameter('angle_max').get_parameter_value().integer_value)
+        self.angle_step = int(self.get_parameter('angle_step').get_parameter_value().integer_value)
+        self.path_fondo = self.get_parameter('path_medicion_fondo').get_parameter_value().string_value
 
         # -------- Cargar medición de fondo ----------
         self.medicion_fondo = None
@@ -88,11 +82,11 @@ class RadarWaterfall(Node):
         self.fig = plt.figure(figsize=(14, 8), constrained_layout=False)
 
         # Rectángulos [left, bottom, width, height] en coords de figura
-        RECT_ANGLE   = [0.08, 0.94, 0.84, 0.035]  # slider superior (fino)
-        RECT_LINE    = [0.08, 0.60, 0.84, 0.28]   # curva 1D
-        RECT_IMG     = [0.08, 0.26, 0.84, 0.28]   # waterfall
-        RECT_CBAR    = [0.93, 0.26, 0.02, 0.28]   # colorbar del waterfall (opcional)
-        RECT_WL_LOW  = [0.08, 0.09, 0.36, 0.035]  # slider WL Low (dB)
+        RECT_ANGLE = [0.08, 0.94, 0.84, 0.035]  # slider superior (fino)
+        RECT_LINE = [0.08, 0.60, 0.84, 0.28]   # curva 1D
+        RECT_IMG = [0.08, 0.26, 0.84, 0.28]   # waterfall
+        RECT_CBAR = [0.93, 0.26, 0.02, 0.28]   # colorbar del waterfall (opcional)
+        RECT_WL_LOW = [0.08, 0.09, 0.36, 0.035]  # slider WL Low (dB)
         RECT_WL_HIGH = [0.56, 0.09, 0.36, 0.035]  # slider WL High (dB)
 
         # --- Curva 1D (arriba) ---
@@ -154,7 +148,7 @@ class RadarWaterfall(Node):
             if self.filtered_data is None:
                 self.current_idx = 0
                 return
-            self.current_idx = angle_to_index(float(val), self.angle_min, self.angle_max, self.filtered_data.shape[0])
+            self.current_idx = self.angle_to_index(float(val), self.angle_min, self.angle_max, self.filtered_data.shape[0])
         self._schedule_redraw()
 
     def _schedule_redraw(self, delay_ms=20):
@@ -241,8 +235,8 @@ class RadarWaterfall(Node):
 
         # Eje de frecuencias y filtro por distancia >= 0
         n_bins = msg.cols
-        freq_full = np.linspace(-SAMPLE_RATE/2.0, SAMPLE_RATE/2.0, n_bins, endpoint=False)
-        dist_full = freq_to_distance(freq_full)
+        freq_full = np.linspace(-self.sample_rate_hz/2.0, self.sample_rate_hz/2.0, n_bins, endpoint=False)
+        dist_full = self.freq_to_distance(freq_full)
         valid = np.where(dist_full >= 0.0)[0]
         if valid.size == 0:
             self.get_logger().warn("No hay bins válidos (dist >= 0).")
@@ -260,9 +254,23 @@ class RadarWaterfall(Node):
 
             # Calcula índice según slider actual y agenda redibujo
             angle = float(self.sld_angle.val)
-            self.current_idx = angle_to_index(angle, self.angle_min, self.angle_max, self.filtered_data.shape[0])
+            self.current_idx = self.angle_to_index(angle, self.angle_min, self.angle_max, self.filtered_data.shape[0])
 
         self._schedule_redraw()
+
+    # Utilidades ejes y mapeos
+    def freq_to_distance(self, f):
+        # misma convención que has usado en tus nodos
+        return (f - self.signal_freq_hz - self.range_offset_hz) * C / (2.0 * SLOPE)
+
+    def distance_to_freq(self, d):
+        return self.signal_freq_hz + self.range_offset_hz + (d * 2.0 * SLOPE / C)
+
+    def angle_to_index(self, angle, amin, amax, n_rows):
+        if n_rows <= 1 or amax == amin:
+            return 0
+        alpha = (angle - amin) / (amax - amin)
+        return int(np.clip(round(alpha * (n_rows - 1)), 0, n_rows - 1))
 
 # ===========================
 # main: ROS en hilo aparte, GUI en principal

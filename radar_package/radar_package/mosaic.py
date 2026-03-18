@@ -4,16 +4,33 @@ from rclpy.node import Node
 import numpy as np
 import matplotlib.pyplot as plt
 from radar_msg.msg import RadarData
-from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
-from radar_package.parametros import *
+from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
+#from radar_package.parametros import *
 import time
 
 
 path_mapa_acumulado = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/mapa_acumulado_20250731_155335.npy"
 mapa_acumulado = np.load(path_mapa_acumulado)
 
+class Mapa(Node):
+    def __init__(self):
+        super().__init__('radar_node') # declarar herencia
 
-def mosaico(mapa_acumulado, angle0: float = -90.0, fov: float = 160.0):
+        # parametros
+        # processing.yaml
+        self.declare_parameter('n_maps', 13)
+        self.declare_parameter('global_angles', 341)
+        self.declare_parameter('angle0_deg', -90)
+        self.declare_parameter('step_deg_ptu', 15)
+        
+        # carga de valores
+        # processing.yaml
+        self.angle0_deg = self.get_parameter('angle0_deg').value
+        self.step_deg_ptu = self.get_parameter('step_deg_ptu').value
+        self.global_angles = self.get_parameter('global_angles').value
+        self.n_maps  = self.get_parameter('n_maps').value
+
+    def mosaico(self, mapa_acumulado, fov: float = 160.0):
         total_rows, n_freq = mapa_acumulado.shape # 2093, 322 -> 1024/2 = 512 -> 585 step_freq (100000 + 11000)/585 = 189 -> 512 - 189 = 323 
         segment_size = 161 # 161
         n_segments = total_rows // segment_size # 13
@@ -22,7 +39,7 @@ def mosaico(mapa_acumulado, angle0: float = -90.0, fov: float = 160.0):
         segmentos = mapa_acumulado.reshape((n_segments, segment_size, n_freq)) # separacion por segmentos
         
          # centros de cada barrido
-        centros = angle0 + STEP_DEG_PTU * np.arange(N_MAPS) # lista de angulos del pantilt
+        centros = self.angle0_deg + self.step_deg_ptu * np.arange(self.n_maps) # lista de angulos del pantilt
 
         angulos_seg = [np.linspace(c - half_fov, c + half_fov, segment_size) for c in centros]
 
@@ -30,7 +47,7 @@ def mosaico(mapa_acumulado, angle0: float = -90.0, fov: float = 160.0):
         all_angles = np.concatenate(angulos_seg)
         global_angles = np.unique(all_angles)
 
-        mapa_mosaico = np.zeros((GLOBAL_ANGLES, n_freq))
+        mapa_mosaico = np.zeros((self.global_angles, n_freq))
 
         # para cada frecuencia, interpolar y combinar
         for j in range(n_freq): # de 0 a 321
@@ -69,8 +86,8 @@ def mosaico(mapa_acumulado, angle0: float = -90.0, fov: float = 160.0):
             
         return mapa_mosaico
 
-
-mapa_mosaico = mosaico(mapa_acumulado)
+mapanode = Mapa()
+mapa_mosaico = mapanode.mosaico(mapa_acumulado)
 
 print(mapa_mosaico[170, 30])
 print(max(0.0, 1.0 - abs(0 - -75) / 80), max(0.0, 1.0 - abs(0 - -60) / 80), max(0.0, 1.0 - abs(0 - -45) / 80), max(0.0, 1.0 - abs(0 - -30) / 80), max(0.0, 1.0 - abs(0 - -15) / 80), max(0.0, 1.0 - abs(0 - 0) / 80), max(0.0, 1.0 - abs(0 - 15) / 80), max(0.0, 1.0 - abs(0 - 30) / 80), max(0.0, 1.0 - abs(0 - 45) / 80), max(0.0, 1.0 - abs(0 - 60) / 80), max(0.0, 1.0 - abs(0 - 75) / 80))

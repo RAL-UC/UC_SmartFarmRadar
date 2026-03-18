@@ -9,8 +9,8 @@ from std_msgs.msg import Header
 from radar_msg.msg import RadarData
 from radar_msg.msg import RadarCartesian
 
-from radar_package.target_detection_dbfs import cfar
-from radar_package.parametros import *
+from radar_package.processing.target_detection_dbfs import cfar
+#from radar_package.parametros import *
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -28,6 +28,51 @@ class RadarSphericalToCartesian(Node):
     def __init__(self):
         super().__init__('radar_spherical_to_cartesian')
 
+        # parametros
+        # radar.yaml
+        self.declare_parameter('sample_rate_hz', 0.6e6)
+        self.declare_parameter('signal_freq_hz', 100e3)
+        self.declare_parameter('good_ramp_samples', 270)
+        self.declare_parameter('range_offset_hz', 10760.0)
+        self.declare_parameter('slope_hz_per_s', 1.0e12)
+        self.declare_parameter('speed_of_light', 3e8)
+        # barrido en azimuth theta_beam
+        self.declare_parameter('rbeam_angledeg_min', -80)
+        self.declare_parameter('rbeam_angledeg_max', 80)
+        self.declare_parameter('rbeam_angledeg_step', 1)
+
+        # processing.yaml
+        # parámetros CFAR
+        self.declare_parameter('cfar_guard_cells', 15)
+        self.declare_parameter('cfar_reference_cells', 45)
+        self.declare_parameter('cfar_bias', 10)
+        self.declare_parameter('cfar_method', 'average')
+        # filtro de distancias
+        self.declare_parameter('range_filter_min_m', 0.0)
+        self.declare_parameter('range_filter_max_m', 5.0)
+
+        # carga de valores
+        #radar.yaml
+        self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
+        self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
+        self.good_ramp_samples = self.get_parameter('good_ramp_samples').value
+        self.range_offset_hz = self.get_parameter('range_offset_hz').value
+        self.slope_hz_per_s = self.get_parameter('slope_hz_per_s').value
+        self.speed_of_light = self.get_parameter('speed_of_light').value
+        self.rbeam_angledeg_min = self.get_parameter('rbeam_angledeg_min').value
+        self.rbeam_angledeg_max = self.get_parameter('rbeam_angledeg_max').value
+        self.rbeam_angledeg_step = self.get_parameter('rbeam_angledeg_step').value
+
+        # processing.yaml
+        self.cfar_guard_cells = self.get_parameter('cfar_guard_cells').value
+        self.cfar_reference_cells = self.get_parameter('cfar_reference_cells').value
+        self.cfar_bias = self.get_parameter('cfar_bias').value
+        self.cfar_method = self.get_parameter('cfar_method').value
+        self.range_filter_min_m = self.get_parameter('range_filter_min_m').value
+        self.range_filter_max_m = self.get_parameter('range_filter_max_m').value
+
+
+
         # suscriptor y publicador
         self.sub = self.create_subscription(RadarData, 'radar_data', self.cb_radar, 10)
         self.pub = self.create_publisher(RadarCartesian, 'radar_cartesian', 10)
@@ -41,44 +86,18 @@ class RadarSphericalToCartesian(Node):
         except Exception as e:
             self.get_logger().warn(f"No se pudo cargar medición de fondo: {e!r}. Usando ceros.")
             self.medicion_fondo = None
-
-        # barrido en azimuth theta_beam
-        self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM)
-        self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM)
-        self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM)
-
-        # parámetros CFAR
-        self.declare_parameter('cfar_guard', CFAR_GUARD)
-        self.declare_parameter('cfar_ref', CFAR_REF)
-        self.declare_parameter('cfar_bias', CFAR_BIAS)
-        self.declare_parameter('cfar_method', CFAR_METHOD)
-
-        # filtro de distancias
-        self.declare_parameter('min_range_m', MIN_RANGE_M)
-        self.declare_parameter('max_range_m', MAX_RANGE_M)
-
-        # leer parámetros
-        p = self.get_parameter
-        self.angle_min_radar_beam = p('angle_min_radar_beam').value
-        self.angle_max_radar_beam = p('angle_max_radar_beam').value
-        self.angle_step_radar_beam = p('angle_step_radar_beam').value
-
-        self.cfar_guard = p('cfar_guard').value
-        self.cfar_ref   = p('cfar_ref').value
-        self.cfar_bias  = p('cfar_bias').value
-        self.cfar_meth  = p('cfar_method').value
         
-        self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
-        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
-        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
+        self.win_funct = np.ones(self.good_ramp_samples, dtype=np.float64) # ventana rectangular
+        #self.win_funct = np.blackman(self.good_ramp_samples) # ventana blackman -> posiblemente se deba considerar offset
+        #self.win_funct = np.hamming(self.good_ramp_samples)
         self.sum_win_funct = np.sum(self.win_funct)
 
         # conversión frecuencia <-> distancia
-        self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2.0 * SLOPE)
-        self.distance_to_freq = lambda d: SIGNAL_FREQ + OFFSET + (d * 2.0 * SLOPE / C)  
+        self.freq_to_distance = lambda f: (f - self.signal_freq_hz - self.range_offset_hz) * self.speed_of_light / (2.0 * self.slope_hz_per_s)
+        self.distance_to_freq = lambda d: self.signal_freq_hz + self.range_offset_hz + (d * 2.0 * self.slope_hz_per_s / self.speed_of_light)  
 
         # construir vector de theta_beam
-        self.theta_beam_deg = np.arange(self.angle_min_radar_beam, self.angle_max_radar_beam + 1, self.angle_step_radar_beam)
+        self.theta_beam_deg = np.arange(self.rbeam_angledeg_min, self.rbeam_angledeg_max + 1, self.rbeam_angledeg_step)
         #self.get_logger().info(f"theta_beam_deg: {self.theta_beam_deg}")
 
         self.get_logger().info("Nodo listo: radar_spherical_to_cartesian a /radar_cartesian")
@@ -110,7 +129,7 @@ class RadarSphericalToCartesian(Node):
         data_imag = np.asarray(msg.data_imag, dtype=np_dtype).reshape((rows, cols))
         mat = data_real + 1j * data_imag
 
-        mat[:,:GOOD_RAMP_SAMPLES] *=  self.win_funct[None, :]
+        mat[:,:self.good_ramp_samples] *=  self.win_funct[None, :]
         sp = np.fft.fftshift(np.fft.fft(mat, axis=1), axes=1)
         s_mag = np.abs(sp) / self.sum_win_funct
         s_mag = np.maximum(s_mag, 10 ** (-15))
@@ -137,7 +156,7 @@ class RadarSphericalToCartesian(Node):
                 self.get_logger().warn(f"Error restando medición de fondo: {e!r}")
 
         # 3) Eje de frecuencia y r (distancia)
-        freq = np.linspace(-SAMPLE_RATE/2.0, SAMPLE_RATE/2.0, cols, endpoint=False)
+        freq = np.linspace(-self.sample_rate_hz/2.0, self.sample_rate_hz/2.0, cols, endpoint=False)
         r_all = self.freq_to_distance(freq)  # metros
 
         # 4) Filtrado por rango válido (>= 0 y opcionalmente <= max_range)
@@ -153,7 +172,7 @@ class RadarSphericalToCartesian(Node):
         n_cols_valid = r.shape[0]
 
         # 6) CFAR por fila: índices de detección en range bins por cada steering angle
-        total_ext  = self.cfar_guard + self.cfar_ref
+        total_ext  = self.cfar_guard_cells + self.cfar_reference_cells
 
         det_angle_idx = []
         det_range_idx = []
@@ -171,10 +190,10 @@ class RadarSphericalToCartesian(Node):
 
             mag_ext = self.extend_with_means(mag, total_ext)
             _, targets = cfar(mag_ext,
-                              num_guard_cells=self.cfar_guard,
-                              num_ref_cells=self.cfar_ref,
+                              num_guard_cells=self.cfar_guard_cells,
+                              num_ref_cells=self.cfar_reference_cells,
                               bias=self.cfar_bias,
-                              cfar_method=self.cfar_meth)
+                              cfar_method=self.cfar_method)
             targets = np.ma.array(self.unpad(targets, total_ext),
                                   mask=self.unpad(targets.mask, total_ext))
 

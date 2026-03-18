@@ -4,8 +4,8 @@ from rclpy.node import Node
 import numpy as np
 import matplotlib.pyplot as plt
 from radar_msg.msg import RadarData
-from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
-from radar_package.parametros import *
+from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
+#from radar_package.parametros import *
 from matplotlib.widgets import Slider, RadioButtons
 import os
 from ament_index_python.packages import get_package_share_directory # recursos
@@ -21,6 +21,48 @@ class RadarVisualizer(Node):
     def __init__(self):
         super().__init__('radar_visualizer')
 
+        # parámetros configurables desde línea de comandos o archivo de configuracion
+        # radar.yaml
+        self.declare_parameter('element_spacing_m', 0.014)
+        self.declare_parameter('sample_rate_hz', 0.6e6)
+        self.declare_parameter('center_frequency_hz', 2.2e9)
+        self.declare_parameter('signal_freq_hz', 100e3)
+        self.declare_parameter('slope_hz_per_s', 1.0e12)
+        self.declare_parameter('range_offset_hz', 10760.0)
+        self.declare_parameter('speed_of_light', 3e8)
+        self.declare_parameter('good_ramp_samples', 270)
+        self.declare_parameter('rbeam_angledeg_min', -80)
+        self.declare_parameter('rbeam_angledeg_max', 80)
+        self.declare_parameter('rbeam_angledeg_step', 1)
+
+        # processing.yaml
+        self.declare_parameter('cfar_guard_cells', 15)
+        self.declare_parameter('cfar_reference_cells', 45)
+        self.declare_parameter('cfar_bias', 10)
+        self.declare_parameter('range_filter_min_m', 0.0)
+        self.declare_parameter('range_filter_max_m', 5.0)
+
+        # carga de valores
+        # radar.yaml
+        self.element_spacing_m = self.get_parameter('element_spacing_m').value
+        self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
+        self.center_frequency_hz = self.get_parameter('center_frequency_hz').value
+        self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
+        self.slope_hz_per_s = self.get_parameter('slope_hz_per_s').value
+        self.range_offset_hz = self.get_parameter('range_offset_hz').value
+        self.speed_of_light = self.get_parameter('speed_of_light').value
+        self.good_ramp_samples = self.get_parameter('good_ramp_samples').value
+        self.rbeam_angledeg_min = self.get_parameter('rbeam_angledeg_min').value
+        self.rbeam_angledeg_max = self.get_parameter('rbeam_angledeg_max').value
+        self.rbeam_angledeg_step = self.get_parameter('rbeam_angledeg_step').value
+
+        # processing.yaml
+        self.cfar_guard_cells = self.get_parameter('cfar_guard_cells').value
+        self.cfar_reference_cells = self.get_parameter('cfar_reference_cells').value
+        self.cfar_bias = self.get_parameter('cfar_bias').value
+        self.range_filter_min_m = self.get_parameter('range_filter_min_m').value
+        self.range_filter_max_m = self.get_parameter('range_filter_max_m').value
+
         # suscripción a datos de radar
         # los datos son recibidos como una matriz fft de frecuencias en steering angle
         self.subscription = self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
@@ -30,29 +72,18 @@ class RadarVisualizer(Node):
         self.filtered_data = None # data filtrada y desplazada en offset
         self.filtered_freq = None # eje x filtrado
 
-        # parámetros configurables desde línea de comandos o launch 
-        self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM) # grados
-        self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM) # grados
-        self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM) # grados
-
-        # Leer parámetros
-        p = self.get_parameter
-        self.angle_min_radar_beam = p('angle_min_radar_beam').get_parameter_value().integer_value
-        self.angle_max_radar_beam = p('angle_max_radar_beam').get_parameter_value().integer_value
-        self.angle_step_radar_beam = p('angle_step_radar_beam').get_parameter_value().integer_value
-
         # Funciones de conversión freq <-> range (eje inferior y superior)
-        self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2 * SLOPE)
-        self.distance_to_freq = lambda d: SIGNAL_FREQ + OFFSET + (d * 2 * SLOPE / C)
+        self.freq_to_distance = lambda f: (f - self.signal_freq_hz - self.range_offset_hz) * self.speed_of_light / (2 * self.slope_hz_per_s)
+        self.distance_to_freq = lambda d: self.signal_freq_hz + self.range_offset_hz + (d * 2 * self.slope_hz_per_s / self.speed_of_light)
 
         # Ejes y datos que se rellenan en el primer mensaje
         self.freq = None # eje de frecuencias
         self.filtered_data = None
         self.valid_indices = None # índices >= 0 m
 
-        self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
-        #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
-        #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
+        self.win_funct = np.ones(self.good_ramp_samples, dtype=np.float64) # ventana rectangular
+        #self.win_funct = np.blackman(self.good_ramp_samples) # ventana blackman -> posiblemente se deba considerar offset
+        #self.win_funct = np.hamming(self.good_ramp_samples)
         self.sum_win_funct = np.sum(self.win_funct)
 
         # Configuración de Matplotlib interactivo
@@ -81,19 +112,19 @@ class RadarVisualizer(Node):
 
         # Slider de frames (recorrido en steering angle)
         ax_slider = plt.axes([0.25, 0.05, 0.65, 0.03])
-        init_angle = np.clip(0, self.angle_min_radar_beam, self.angle_max_radar_beam) if self.angle_min_radar_beam <= 0 <= self.angle_max_radar_beam else self.angle_min_radar_beam
-        self.sld_angle = Slider(ax_slider, 'Steering angle', self.angle_min_radar_beam, self.angle_max_radar_beam, valinit=init_angle, valstep=self.angle_step_radar_beam)
+        init_angle = np.clip(0, self.rbeam_angledeg_min, self.rbeam_angledeg_max) if self.rbeam_angledeg_min <= 0 <= self.rbeam_angledeg_max else self.rbeam_angledeg_min
+        self.sld_angle = Slider(ax_slider, 'Steering angle', self.rbeam_angledeg_min, self.rbeam_angledeg_max, valinit=init_angle, valstep=self.rbeam_angledeg_step)
 
         # CONTROLES INTERACTIVOS
         # Slider para num_guard_cells
         ax_guard = plt.axes([0.015, 0.30, 0.015, 0.60])
-        self.sld_guard = Slider(ax_guard, "Guard\n(N)", 1, 30, valinit=CFAR_GUARD, valstep=1, orientation='vertical')
+        self.sld_guard = Slider(ax_guard, "Guard\n(N)", 1, 30, valinit=self.cfar_guard_cells, valstep=1, orientation='vertical')
 
         ax_ref = plt.axes([0.045, 0.30, 0.015, 0.60])
-        self.sld_ref = Slider(ax_ref, "Ref\n(N)", 1, 70, valinit=CFAR_REF, valstep=1, orientation='vertical')
+        self.sld_ref = Slider(ax_ref, "Ref\n(N)", 1, 70, valinit=self.cfar_reference_cells, valstep=1, orientation='vertical')
 
         ax_bias = plt.axes([0.075, 0.30, 0.015, 0.60])
-        self.sld_bias = Slider(ax_bias, "Bias\n(dB)", 0.0, 30.0, valinit=CFAR_BIAS, valstep=1, orientation='vertical')
+        self.sld_bias = Slider(ax_bias, "Bias\n(dB)", 0.0, 30.0, valinit=self.cfar_bias, valstep=1, orientation='vertical')
 
         # Slider para fa_rate (solo para método false_alarm)
         ax_fa = plt.axes([0.105, 0.30, 0.015, 0.60]) 
@@ -219,7 +250,7 @@ class RadarVisualizer(Node):
 
         mat = data_real + 1j*data_imag
         #mat = mat.reshape((n_steering_angle, n_bins))
-        mat[:,:GOOD_RAMP_SAMPLES] *= self.win_funct[None, :]
+        mat[:,:self.good_ramp_samples] *= self.win_funct[None, :]
         sp = np.fft.fftshift(np.fft.fft(mat, axis=1), axes=1)
         s_mag = np.abs(sp) / self.sum_win_funct
         s_mag = np.maximum(s_mag, 10 ** (-15))
@@ -245,10 +276,10 @@ class RadarVisualizer(Node):
                 )
 
         # Construir eje de frecuencia completo y corrimiento
-        freq = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, cols, endpoint=False)
+        freq = np.linspace(-self.sample_rate_hz/2, self.sample_rate_hz/2, cols, endpoint=False)
         distance = self.freq_to_distance(freq)
         # filtrar solo distancias >= 0
-        self.valid_indices = np.where((distance >= MIN_RANGE_M) & (distance <= MAX_RANGE_M))[0]
+        self.valid_indices = np.where((distance >= self.range_filter_min_m) & (distance <= self.range_filter_max_m))[0]
         #self.get_logger().info(f"{self.valid_indices}")
         self.filtered_data = mat[:, self.valid_indices]
         # atenuar valores iniciales
@@ -286,7 +317,7 @@ class RadarVisualizer(Node):
             return 0
         rows = self.filtered_data.shape[0]
         # redondea al múltiplo de step
-        idx = int(round((ang - self.angle_min_radar_beam) / float(self.angle_step_radar_beam)))
+        idx = int(round((ang - self.rbeam_angledeg_min) / float(self.rbeam_angledeg_step)))
         return max(0, min(rows - 1, idx))
 
     def extend_with_means(self, mag, total_guard_ref):

@@ -1,0 +1,22 @@
+processing:
+  ros__parameters:    
+    # ATENUACION
+
+    # INITIAL_ATTENUATION = 1.4 # valores en su mayoria negativos
+    idx_attenuation: 8
+
+    # FILTRO DE DISTANCIA
+    range_filter_min_m: 0.0
+    range_filter_max_m: 5.0
+
+    # CFAR
+    cfar_guard_cells: 15 # celdas de guarda
+    cfar_reference_cells: 45 # celdas de referencia
+    cfar_bias: 10 # aumento bias
+    cfar_method: "average" # metodos: average, greatest, smallest, false_alarm
+
+    # MAPA ACUMULADO
+    n_maps: 13 # 180 / 15 + 1 -> desplazamiento de pantilt de 15 grados para un escaneo de 180 grados
+    step_deg_ptu: 15
+    angle0_deg: -90
+    global_angles: 341 # 80 apertura de steering angle + 90 de pantilt dan una apertura de 170 hacia cada lado = 340 + 1

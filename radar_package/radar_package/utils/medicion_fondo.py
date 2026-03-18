@@ -6,8 +6,8 @@ from radar_msg.msg import RadarData
 import os
 import time
 from pathlib import Path
-from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
-from radar_package.parametros import *
+from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
+#from radar_package.parametros import *
 
 # Ruta por defecto
 REPO_ROOT = Path.cwd()
@@ -29,9 +29,19 @@ class BackgroundCaptureNode(Node):
     def __init__(self):
         super().__init__('background_capture_node')
 
+        # default parameter
+        # radar.yaml
+        self.declare_parameter('repeat_capture', -1)
+        self.declare_parameter('good_ramp_samples', 270)
+
+        # carga de valores
+        # radar.yaml
+        self.repeat_capture = self.get_parameter('repeat_capture').value
+        self.good_ramp_samples = self.get_parameter('good_ramp_samples').value
+
         # Declaración de parámetros (mismo estilo que tus otros nodos)
         self.topic = "/radar_data"
-        self.declare_parameter('captures', REPEAT_CAPTURE)
+        self.declare_parameter('captures', self.repeat_capture)
         self.declare_parameter('output_path', DEFAULT_OUTPUT)
         self.np_data_type = 'float64'
 
@@ -51,7 +61,7 @@ class BackgroundCaptureNode(Node):
         self.count = 0
         self.shape_expected = None
 
-        self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular
+        self.win_funct = np.ones(self.good_ramp_samples, dtype=np.float64) # ventana rectangular
         #self.win_funct = np.blackman(GOOD_RAMP_SAMPLES) # ventana blackman -> posiblemente se deba considerar offset
         #self.win_funct = np.hamming(GOOD_RAMP_SAMPLES)
         self.sum_win_funct = np.sum(self.win_funct)
@@ -78,7 +88,7 @@ class BackgroundCaptureNode(Node):
         data_imag = np.asarray(msg.data_imag, dtype=np_dtype).reshape((rows, cols))
         mat = data_real + 1j * data_imag
 
-        mat[:,:GOOD_RAMP_SAMPLES] *=  self.win_funct[None, :]
+        mat[:,:self.good_ramp_samples] *=  self.win_funct[None, :]
         sp = np.fft.fftshift(np.fft.fft(mat, axis=1), axes=1)
         s_mag = np.abs(sp) / self.sum_win_funct
         s_mag = np.maximum(s_mag, 10 ** (-15))

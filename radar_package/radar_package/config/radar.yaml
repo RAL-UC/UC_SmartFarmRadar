@@ -1,0 +1,72 @@
+radar:
+  ros__parameters:
+    # ====================== GPS ======================
+    # CONECTIVIDAD / RED
+    # GPS Septentrio Mosaic X5 (Ardusimple)
+    # URL típica: 192.168.3.1
+    # https://www.ardusimple.es/how-to-configure-septentrio-mosaic-x5-and-mosaic-h/
+    # gps_uri: "ip:192.168.3.1"
+
+    # ====================== PHASER ======================
+    # CONECTIVIDAD / RED
+    # Conexión por VNC Viewer a phaser.local
+    # clave: analog
+    # Profiles distintos para componentes conectados por Ethernet o USB-Ethernet
+    sdr_uri: "ip:phaser.local:50901" # ej: 192.168.2.50, 192.168.2.60, 192.168.2.40
+    phaser_uri: "ip:phaser.local"
+
+    # HARDWARE
+    element_spacing_m: 0.014 # espaciamiento entre parches de antena receptora (14 mm)
+
+    # ADQUISICIÓN 
+    sample_rate_hz: 0.6e6 # frecuencia de muestreo 600 kHz
+
+    # FRECUENCIAS DE SEÑALES DE TRABAJO
+    center_freq_hz: 2.2e9           # 2.2 GHz frecuencia de operacion PlutoSDR
+    signal_freq_hz: 100e3           # 100 kHz señal transmitida
+    output_freq_hz: 10e9            # 10 GHz salida radiofrecuencia
+    bandwidth_hz: 500e6             # 500 MHz ancho de banda del chirp
+    num_steps: 500                  # numero de pasos en que se dividira el chirp
+    ramp_time_us: 500               # duración chirp us, se aconseja tener un paso por us
+    ramp_time_s: 0.0005             # 500 us en segundos -> ramp_time_us/1e6
+    speed_of_light: 3e8             # velocidad de la luz m/s
+    wavelength_m: 0.03              # longitud de onda 0.3m (30cm)-> C / output_freq
+    slope_hz_per_s: 1.0e12          # variación de la frecuencia por unidad de tiempo (ancho de banda total) / (duración de la rampa)s = 1x10^12
+
+    # se utiliza desplazamiento de fase en un rango pequeño en base a la frecuencia central
+    # introduce un error el cual es pequeño 
+    signal_freq_phaser_rx_hz: 10.25e9 # rango 10–10.5 GHz
+
+    # GANANCIAS
+    rx_gain_chan0: 70 # rango [-3, 70]
+    rx_gain_chan1: 70 # rango [-3, 70]
+    tx_gain_chan0: -88 # ganancia en la transmision valor entre 0 y -88 CANAL 0 -> Tx1
+    tx_gain_chan1: 0 # ganancia en la transmision valor entre 0 y -88 CANAL 0 -> Tx2
+
+    # OFFSET DE DISTANCIA
+    # podria reajustarse segun el calculo y aproximacion dada a los bins
+    # fbeat = 2SR/c = 6666 Hz
+    # R distancia al objetivo
+    # 6666 Hz por metro 10760/6666 = 1.614 metros de offset en medicion de distancia 
+    range_offset_hz: 10760.0 # offset experimental
+
+    # TIMING RADAR
+    # Intervalo de Repetición de Pulso (PRI) -> tiempo entre chirridos
+    # cada cuánto ocurrirá el ciclo TX/RX+espera -> cada cuadro coincide con un chirrido
+    pri_ms: 1.5                     # 500 µs + 1 ms d-> duración chirp + margen
+    num_chirps: 1                   # chirridos por cuadro (uso con potencias de 2)
+    percent_ignore_samples: 0.1     # se ignora el 10% de la cantidad de muestras
+    begin_offset_time_s: 0.00005    # 10% de 500 µs omitidos para el comienzo de la consideracion de datos para evitar no linealidades, transitorio o desfase
+    good_ramp_samples: 270          # cantidad de muestras útiles -> int((RAMP_TIME_S-BEGIN_OFFSET_TIME) * SAMPLE_RATE)
+
+    # BEAM RADAR
+    # considerar patron de transmision de antena transmisora, diagrama polar con 24° de apertura caida a -3db
+    # mediciones en grados
+    fov_deg: 160
+    rbeam_angledeg_min: -80
+    rbeam_angledeg_max: 80
+    rbeam_angledeg_step: 1 
+
+    # CONTROL DE EJECUCIÓN
+    repeat_capture: -1 # cantidad de capturas tomadas con el radar activo
+    wait_timeout_server_s: 30 # [s] tiempo de conexion a clientes

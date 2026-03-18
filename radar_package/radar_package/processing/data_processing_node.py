@@ -3,8 +3,8 @@ import rclpy
 from rclpy.node import Node
 import numpy as np
 from radar_msg.msg import RadarData
-from radar_package.target_detection_dbfs import cfar # objetivos de deteccion
-from radar_package.parametros import *
+from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
+#from radar_package.parametros import *
 from radar_msg.msg import RadarCartesian
 import os
 from ament_index_python.packages import get_package_share_directory # recursos
