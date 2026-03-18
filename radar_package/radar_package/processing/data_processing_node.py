@@ -17,26 +17,46 @@ path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo.npy')
 class RadarDataProcessing(Node):
     def __init__(self):
         super().__init__('radar_data_processing')
+
+        # parametros
+        # radar.yaml
+        self.declare_parameter('sample_rate_hz', 0.6e6)
+        self.declare_parameter('signal_freq_hz', 100e3)
+        self.declare_parameter('range_offset_hz', 10760.0)
+        self.declare_parameter('slope_hz_per_s', 1.0e12)
+        self.declare_parameter('speed_of_light', 3e8)
+        # barrido en azimuth theta_beam
+        self.declare_parameter('fov_deg', 160)
+        # processing.yaml
+        # filtro de distancias
+        self.declare_parameter('n_maps', 13)
+        self.declare_parameter('angle0_deg', -90)
+        self.declare_parameter('step_deg_ptu', 15)
+        self.declare_parameter('global_angles', 341)
+
+        # carga de valores
+        #radar.yaml
+        self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
+        self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
+        self.range_offset_hz = self.get_parameter('range_offset_hz').value
+        self.slope_hz_per_s = self.get_parameter('slope_hz_per_s').value
+        self.speed_of_light = self.get_parameter('speed_of_light').value
+        self.fov_deg = self.get_parameter('fov_deg').value
+        # processing.yaml
+        self.n_maps  = self.get_parameter('n_maps').value
+        self.angle0_deg = self.get_parameter('angle0_deg').value
+        self.step_deg_ptu = self.get_parameter('step_deg_ptu').value
+        self.global_angles = self.get_parameter('global_angles').value
+
         self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
         self.cart_pub = self.create_publisher(RadarCartesian, 'radar_cartesian', 10)
 
         self.medicion_fondo = np.load(path_medicion_fondo) # medicion de fondo
-        self.ptu_angles = ANGLE0 + STEP_DEG_PTU * np.arange(N_MAPS) # lista de angulos del pantilt
-
-        # parámetros configurables
-        self.declare_parameter('angle_min_radar_beam', ANGLE_MIN_RADAR_BEAM)
-        self.declare_parameter('angle_max_radar_beam', ANGLE_MAX_RADAR_BEAM)
-        self.declare_parameter('angle_step_radar_beam', ANGLE_STEP_RADAR_BEAM)
-
-        # leer parámetros
-        p = self.get_parameter
-        self.angle_min_radar_beam = p('angle_min_radar_beam').get_parameter_value().integer_value
-        self.angle_max_radar_beam = p('angle_max_radar_beam').get_parameter_value().integer_value
-        self.angle_step_radar_beam  = p('angle_step_radar_beam').get_parameter_value().integer_value
+        self.ptu_angles = self.angle0_deg + self.step_deg_ptu * np.arange(self.n_maps) # lista de angulos del pantilt
 
         # Funciones de conversión freq <-> distancia con compensacion de offset
-        self.freq_to_distance = lambda f: (f - SIGNAL_FREQ - OFFSET) * C / (2 * SLOPE)
-        self.distance_to_freq = lambda d: SIGNAL_FREQ + OFFSET + (d * 2 * SLOPE / C)
+        self.freq_to_distance = lambda f: (f - self.signal_freq_hz - self.range_offset_hz) * self.speed_of_light / (2 * self.slope_hz_per_s)
+        self.distance_to_freq = lambda d: self.signal_freq_hz + self.range_offset_hz + (d * 2 * self.slope_hz_per_s / self.speed_of_light)
 
         self.shape_data = None
         
@@ -54,7 +74,7 @@ class RadarDataProcessing(Node):
         mat = mat - self.medicion_fondo # restar medicion de fondo
 
         # eje de frecuencia completo
-        freq = np.linspace(-SAMPLE_RATE / 2, SAMPLE_RATE / 2, n_bins, endpoint=False)
+        freq = np.linspace(-self.sample_rate_hz / 2, self.sample_rate_hz / 2, n_bins, endpoint=False)
         # convertir el eje de frecuencias a distancia
         distance = self.freq_to_distance(freq)
         # filtrar solo distancias >= 0
@@ -73,13 +93,13 @@ class RadarDataProcessing(Node):
         # acumulacion de segmentos
         self.segmentos.append(filtered_data)
         self.joint_counter += 1
-        self.get_logger().info(f'segmento {self.joint_counter}/{N_MAPS}')
+        self.get_logger().info(f'segmento {self.joint_counter}/{self.n_maps}')
 
         # completados los N_MAPS
-        if self.joint_counter == N_MAPS:
-            self.get_logger().info(f"Se han unido los {N_MAPS} segmentos de captura")
+        if self.joint_counter == self.n_maps:
+            self.get_logger().info(f"Se han unido los {self.n_maps} segmentos de captura")
             accumulated_map = np.vstack(self.segmentos)
-            segmentos = accumulated_map.reshape((N_MAPS, self.shape_data[0], self.shape_data[1]))
+            segmentos = accumulated_map.reshape((self.n_maps, self.shape_data[0], self.shape_data[1]))
             combine_map, global_angles = self.combine_radial_scans(segmentos) # combinacion de segmentos con interpolacion 
             detecciones = self.generate_detections(combine_map) # obtención de detecciones
 
@@ -133,14 +153,14 @@ class RadarDataProcessing(Node):
         return v[total_guard_ref:-total_guard_ref]
     
     def combine_radial_scans(self, accumulated_map):
-        half_fov = FOV / 2.0 # division del FOV
+        half_fov = self.fov_deg / 2.0 # division del FOV
         angulos_seg = [np.linspace(c - half_fov, c + half_fov, self.shape_data[0]) for c in self.ptu_angles] # angulos que cubre cada segmento
 
          # ángulos globales unificados (sin repeticiones)
         all_angles = np.concatenate(angulos_seg)
         global_angles = np.unique(all_angles)
 
-        combine_map = np.zeros((GLOBAL_ANGLES, self.shape_data[1])) # mapa global
+        combine_map = np.zeros((self.global_angles, self.shape_data[1])) # mapa global
 
         # para cada frecuencia
         for j in range(self.shape_data[1]): # de 0 a 321 
@@ -149,7 +169,7 @@ class RadarDataProcessing(Node):
                 pesos = []
                 vals  = []
                 # revisar cada segmento
-                for i in range(N_MAPS): # de 0 a 12
+                for i in range(self.n_maps): # de 0 a 12
                     ai = angulos_seg[i] # extrae los angulos de un segmento 
                     if ai[0] <= ga <= ai[-1]: # revisa si el angulo global esta dentro de los espacios del segmento
                         idx = np.argmax(ai == ga) # encontrar el indice del angulo global dentro del segmento

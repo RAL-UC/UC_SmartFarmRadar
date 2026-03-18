@@ -12,7 +12,7 @@ from rclpy.executors import MultiThreadedExecutor
 
 from ament_index_python.packages import get_package_share_directory
 from radar_msg.msg import RadarData
-#from radar_package.parametros import *  # C, SLOPE, SIGNAL_FREQ, OFFSET, ANGLE_MIN, ANGLE_MAX, ANGLE_STEP, SAMPLE_RATE
+#from radar_package.parametros import * 
 
 # Nodo ROS
 class RadarWaterfall(Node):
@@ -25,22 +25,32 @@ class RadarWaterfall(Node):
         self.declare_parameter('signal_freq_hz', 100e3)
         self.declare_parameter('range_offset_hz', 10760.0)
         self.declare_parameter('speed_of_light', 3e8)
-
-        # carga de valores
-        self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
-        self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
-        self.range_offset_hz = self.get_parameter('range_offset_hz').value
-        self.speed_of_light = self.get_parameter('speed_of_light').value
-
-
-
+        self.declare_parameter('slope_hz_per_s', 1.0e12)
+        self.declare_parameter('rbeam_angledeg_min', -80)
+        self.declare_parameter('rbeam_angledeg_max', 80)
+        self.declare_parameter('rbeam_angledeg_step', 1)
+        # fuera de archivos de configuracion
         self.declare_parameter('topic', 'radar_data')
         self.declare_parameter('num_slices', 100)           # alto del waterfall (n° de filas/tiempo)
         self.declare_parameter('db_low', -60.0)             # nivel bajo (dB) para clim
         self.declare_parameter('db_high', 0.0)              # nivel alto (dB) para clim
-        self.declare_parameter('angle_min', ANGLE_MIN)
-        self.declare_parameter('angle_max', ANGLE_MAX)
-        self.declare_parameter('angle_step', ANGLE_STEP)
+
+        # carga de valores
+        # radar.yaml
+        self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
+        self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
+        self.range_offset_hz = self.get_parameter('range_offset_hz').value
+        self.speed_of_light = self.get_parameter('speed_of_light').value
+        self.slope_hz_per_s = self.get_parameter('slope_hz_per_s').value
+        self.rbeam_angledeg_min = self.get_parameter('rbeam_angledeg_min').value
+        self.rbeam_angledeg_max = self.get_parameter('rbeam_angledeg_max').value
+        self.rbeam_angledeg_step = self.get_parameter('rbeam_angledeg_step').value
+        # fuera de archivos de configuracion
+        self.topic = self.get_parameter('topic').get_parameter_value().string_value
+        self.num_slices = int(self.get_parameter('num_slices').get_parameter_value().integer_value)
+        self.db_low = float(self.get_parameter('db_low').get_parameter_value().double_value)
+        self.db_high = float(self.get_parameter('db_high').get_parameter_value().double_value)
+
         # Ruta a medición de fondo (.npy). Por defecto, intenta resource/medicion_fondo.npy
         try:
             pkg_share = get_package_share_directory('radar_package')
@@ -48,15 +58,8 @@ class RadarWaterfall(Node):
         except Exception:
             default_fondo = ''
         self.declare_parameter('path_medicion_fondo', default_fondo)
-
-        self.topic = self.get_parameter('topic').get_parameter_value().string_value
-        self.num_slices = int(self.get_parameter('num_slices').get_parameter_value().integer_value)
-        self.db_low = float(self.get_parameter('db_low').get_parameter_value().double_value)
-        self.db_high = float(self.get_parameter('db_high').get_parameter_value().double_value)
-        self.angle_min = int(self.get_parameter('angle_min').get_parameter_value().integer_value)
-        self.angle_max = int(self.get_parameter('angle_max').get_parameter_value().integer_value)
-        self.angle_step = int(self.get_parameter('angle_step').get_parameter_value().integer_value)
         self.path_fondo = self.get_parameter('path_medicion_fondo').get_parameter_value().string_value
+
 
         # -------- Cargar medición de fondo ----------
         self.medicion_fondo = None
@@ -98,7 +101,7 @@ class RadarWaterfall(Node):
         self.ax_line.tick_params(labelsize=9)
 
         # Eje secundario superior: frecuencia
-        self.secax = self.ax_line.secondary_xaxis('top', functions=(distance_to_freq, freq_to_distance))
+        self.secax = self.ax_line.secondary_xaxis('top', functions=(self.distance_to_freq, self.freq_to_distance))
         self.secax.set_xlabel("Frequency [Hz]")
         self.secax.tick_params(labelsize=9, pad=8)
 
@@ -114,10 +117,8 @@ class RadarWaterfall(Node):
 
         # --- Slider de ángulo (arriba de todo) ---
         angle_ax = self.fig.add_axes(RECT_ANGLE)
-        init_angle = float(np.clip(0.0, self.angle_min, self.angle_max))
-        self.sld_angle = Slider(angle_ax, 'Steering angle',
-                                self.angle_min, self.angle_max,
-                                valinit=init_angle, valstep=self.angle_step)
+        init_angle = float(np.clip(0.0, self.rbeam_angledeg_min, self.rbeam_angledeg_max))
+        self.sld_angle = Slider(angle_ax, 'Steering angle', self.rbeam_angledeg_min, self.rbeam_angledeg_max,valinit=init_angle, valstep=self.rbeam_angledeg_step)
 
         # --- Sliders WL Low / WL High (abajo, separados) ---
         low_ax  = self.fig.add_axes(RECT_WL_LOW)
@@ -148,7 +149,7 @@ class RadarWaterfall(Node):
             if self.filtered_data is None:
                 self.current_idx = 0
                 return
-            self.current_idx = self.angle_to_index(float(val), self.angle_min, self.angle_max, self.filtered_data.shape[0])
+            self.current_idx = self.angle_to_index(float(val), self.rbeam_angledeg_min, self.rbeam_angledeg_max, self.filtered_data.shape[0])
         self._schedule_redraw()
 
     def _schedule_redraw(self, delay_ms=20):
@@ -254,17 +255,17 @@ class RadarWaterfall(Node):
 
             # Calcula índice según slider actual y agenda redibujo
             angle = float(self.sld_angle.val)
-            self.current_idx = self.angle_to_index(angle, self.angle_min, self.angle_max, self.filtered_data.shape[0])
+            self.current_idx = self.angle_to_index(angle, self.rbeam_angledeg_min, self.rbeam_angledeg_max, self.filtered_data.shape[0])
 
         self._schedule_redraw()
 
     # Utilidades ejes y mapeos
     def freq_to_distance(self, f):
         # misma convención que has usado en tus nodos
-        return (f - self.signal_freq_hz - self.range_offset_hz) * C / (2.0 * SLOPE)
+        return (f - self.signal_freq_hz - self.range_offset_hz) * self.speed_of_light / (2.0 * self.slope_hz_per_s)
 
     def distance_to_freq(self, d):
-        return self.signal_freq_hz + self.range_offset_hz + (d * 2.0 * SLOPE / C)
+        return self.signal_freq_hz + self.range_offset_hz + (d * 2.0 * self.slope_hz_per_s / self.speed_of_light)
 
     def angle_to_index(self, angle, amin, amax, n_rows):
         if n_rows <= 1 or amax == amin:

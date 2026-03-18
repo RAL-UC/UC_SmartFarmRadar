@@ -25,7 +25,7 @@ class PtuSimServer(Node):
         self.declare_parameter('ptu_tilt_min_deg', -20)
         self.declare_parameter('ptu_tilt_max_deg', 20)
         self.declare_parameter('ptu_tilt_step_deg', 5)
-
+        
         # valores
         # ptu.yaml
         self.ptu_pan_min_deg  = self.get_parameter("ptu_pan_min_deg").value

@@ -5,6 +5,10 @@
    Modified by Jon Kraft to use dBFS values
 '''
 
+'''
+    Modificada/Adaptada
+'''
+
 import numpy as np
 from scipy.interpolate import interp1d
 

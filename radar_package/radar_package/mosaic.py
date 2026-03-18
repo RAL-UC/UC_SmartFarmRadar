@@ -8,7 +8,6 @@ from radar_package.processing.target_detection_dbfs import cfar # objetivos de d
 #from radar_package.parametros import *
 import time
 
-
 path_mapa_acumulado = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/mapa_acumulado_20250731_155335.npy"
 mapa_acumulado = np.load(path_mapa_acumulado)
 

@@ -26,7 +26,6 @@ class RadarDataSubscriber(Node):
         self.declare_parameter('rbeam_angledeg_max', 80)
         self.declare_parameter('rbeam_angledeg_step', 1)
         self.declare_parameter('fov_deg', 160)
-        
         # processing.yaml
         self.declare_parameter('idx_attenuation', 8)
         self.declare_parameter('n_maps', 13)
@@ -45,7 +44,6 @@ class RadarDataSubscriber(Node):
         self.rbeam_angledeg_max = self.get_parameter('rbeam_angledeg_max').value
         self.rbeam_angledeg_step  = self.get_parameter('rbeam_angledeg_step').value
         self.fov_deg  = self.get_parameter('fov_deg').value
-        
         # processing.yaml
         self.idx_attenuation  = self.get_parameter('idx_attenuation').value
         self.n_maps  = self.get_parameter('n_maps').value

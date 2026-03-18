@@ -40,7 +40,6 @@ class RadarSphericalToCartesian(Node):
         self.declare_parameter('rbeam_angledeg_min', -80)
         self.declare_parameter('rbeam_angledeg_max', 80)
         self.declare_parameter('rbeam_angledeg_step', 1)
-
         # processing.yaml
         # parámetros CFAR
         self.declare_parameter('cfar_guard_cells', 15)
@@ -62,7 +61,6 @@ class RadarSphericalToCartesian(Node):
         self.rbeam_angledeg_min = self.get_parameter('rbeam_angledeg_min').value
         self.rbeam_angledeg_max = self.get_parameter('rbeam_angledeg_max').value
         self.rbeam_angledeg_step = self.get_parameter('rbeam_angledeg_step').value
-
         # processing.yaml
         self.cfar_guard_cells = self.get_parameter('cfar_guard_cells').value
         self.cfar_reference_cells = self.get_parameter('cfar_reference_cells').value

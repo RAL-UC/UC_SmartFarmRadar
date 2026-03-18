@@ -54,6 +54,7 @@ def generate_launch_description():
         #    package='radar_package',
         #    executable='waterfall',
         #    name='waterfall',
+        #    parameters=[radar_params],
         #    output='screen'
         #),
         # ------------------------------------------------------------
@@ -62,6 +63,7 @@ def generate_launch_description():
             package='radar_package',
             executable='data_processing',
             name='data_processing',
+            parameters=[radar_params, processing_params],
             output='screen'
         ),
         Node(
@@ -74,6 +76,7 @@ def generate_launch_description():
         #    package='radar_package',
         #    executable='medicion_fondo',
         #    name='medicion_fondo',
+        #    parameters=[radar_params],
         #    output='screen'
         #),
         # ------------------------------------------------------------
@@ -104,12 +107,14 @@ def generate_launch_description():
         #    package='radar_package',
         #    executable='mosaic_node',
         #    name='mosaic_node',
+        #    parameters=[processing_params],
         #    output='screen'
         #),
         #Node(
         #    package='radar_package',
         #    executable='data_processing_node',
         #    name='data_processing_node',
+        #    parameters=[radar_params, processing_params],
         #    output='screen'
         #),
         # ------------------------------------------------------------

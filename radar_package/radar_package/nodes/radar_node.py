@@ -31,6 +31,7 @@ class RadarNode(Node):
         super().__init__('radar_node') # declarar herencia
 
         # parámetros configurables desde línea de comandos o archivo de configuracion
+        # radar.yaml
         self.declare_parameter('sdr_uri', "ip:phaser.local:50901")
         self.declare_parameter('phaser_uri', "ip:phaser.local")
         self.declare_parameter('element_spacing_m', 0.014)
@@ -56,6 +57,7 @@ class RadarNode(Node):
         self.declare_parameter('rbeam_angledeg_step', 1)
 
         # carga de valores
+        # radar.yaml
         self.sdr_uri = self.get_parameter('sdr_uri').value
         self.phaser_uri = self.get_parameter('phaser_uri').value
         self.element_spacing_m = self.get_parameter('element_spacing_m').value
