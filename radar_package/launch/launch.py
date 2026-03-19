@@ -107,7 +107,7 @@ def generate_launch_description():
         #    package='radar_package',
         #    executable='mosaic_node',
         #    name='mosaic_node',
-        #    parameters=[processing_params],
+        #    parameters=[radar_params, processing_params],
         #    output='screen'
         #),
         #Node(

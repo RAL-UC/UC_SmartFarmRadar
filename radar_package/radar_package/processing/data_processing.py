@@ -69,8 +69,6 @@ class RadarSphericalToCartesian(Node):
         self.range_filter_min_m = self.get_parameter('range_filter_min_m').value
         self.range_filter_max_m = self.get_parameter('range_filter_max_m').value
 
-
-
         # suscriptor y publicador
         self.sub = self.create_subscription(RadarData, 'radar_data', self.cb_radar, 10)
         self.pub = self.create_publisher(RadarCartesian, 'radar_cartesian', 10)

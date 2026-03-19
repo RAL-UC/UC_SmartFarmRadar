@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-import rclpy
+#import rclpy
 from rclpy.node import Node
 import numpy as np
-import matplotlib.pyplot as plt
-from radar_msg.msg import RadarData
-from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
+#import matplotlib.pyplot as plt
+#from radar_msg.msg import RadarData
+#from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
 #from radar_package.parametros import *
-import time
+#import time
 
+# ruta de mapa guardado
 path_mapa_acumulado = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/mapa_acumulado_20250731_155335.npy"
 mapa_acumulado = np.load(path_mapa_acumulado)
 
@@ -16,6 +17,8 @@ class Mapa(Node):
         super().__init__('radar_node') # declarar herencia
 
         # parametros
+        # radar.yaml
+        self.declare_parameter('fov_deg', 160)
         # processing.yaml
         self.declare_parameter('n_maps', 13)
         self.declare_parameter('global_angles', 341)
@@ -23,17 +26,21 @@ class Mapa(Node):
         self.declare_parameter('step_deg_ptu', 15)
         
         # carga de valores
+        # radar.yaml
+        self.fov_deg = self.get_parameter('fov_deg').value
         # processing.yaml
         self.angle0_deg = self.get_parameter('angle0_deg').value
         self.step_deg_ptu = self.get_parameter('step_deg_ptu').value
         self.global_angles = self.get_parameter('global_angles').value
-        self.n_maps  = self.get_parameter('n_maps').value
+        self.n_maps = self.get_parameter('n_maps').value
 
-    def mosaico(self, mapa_acumulado, fov: float = 160.0):
+
+    def mosaico(self, mapa_acumulado):
+        """Junta varias imagenes de radar para crear un college o mosaico haciendo una suma ponderada"""
         total_rows, n_freq = mapa_acumulado.shape # 2093, 322 -> 1024/2 = 512 -> 585 step_freq (100000 + 11000)/585 = 189 -> 512 - 189 = 323 
         segment_size = 161 # 161
         n_segments = total_rows // segment_size # 13
-        half_fov = fov / 2.0 # 80
+        half_fov = float(self.fov_deg) / 2.0 # 80
 
         segmentos = mapa_acumulado.reshape((n_segments, segment_size, n_freq)) # separacion por segmentos
         

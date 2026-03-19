@@ -4,24 +4,24 @@
 import rclpy
 from rclpy.node import Node
 import numpy as np
-#from typing import Tuple
+#from typing import Tuple # indicar que una variable, argumento o valor de retorno es una tupla con tipos definidos
 #import math
 #import time
 
 from std_msgs.msg import Header
-#from sensor_msgs.msg import PointCloud2, PointField
-#from sensor_msgs_py import point_cloud2 as pc2
+#from sensor_msgs.msg import PointCloud2, PointField # nube de puntos 3D y su estructura
+#from sensor_msgs_py import point_cloud2 as pc2 # funciones auxiliares en Python para crear y leer PointCloud2 fácilmente
 
 from radar_msg.msg import RadarCartesian
 
-from std_srvs.srv import Empty
+#from std_srvs.srv import Empty
 
-import tf_transformations  # si no lo tienes, puedes construir la matriz a mano
-import tf2_ros
-from geometry_msgs.msg import TransformStamped
-from builtin_interfaces.msg import Time as TimeMsg
-from collections import deque
-from geometry_msgs.msg import PoseStamped
+import tf_transformations # operaciones matemáticas con transformaciones 3D, especialmente rotaciones y orientaciones
+import tf2_ros # transformacion de coordenadas 
+from geometry_msgs.msg import TransformStamped # definicion de mensaje geométricos: posiciones, vectores, poses, transformaciones, etc
+from builtin_interfaces.msg import Time as TimeMsg # control de tiempo
+from collections import deque # colas de doble extremo
+from geometry_msgs.msg import PoseStamped # pose (posición + orientación) asociada a un instante de tiempo y un marco de referencia
 
 class RadarMapAccumulator(Node):
     """
@@ -36,19 +36,19 @@ class RadarMapAccumulator(Node):
         super().__init__('radar_map_accumulator')
 
         # ---------------- Parámetros ----------------
-        self.declare_parameter('fixed_frame', 'radar_sensor')           # frame destino para acumular
-        #self.declare_parameter('history_secs', 30.0)           # ventana temporal (seg) para conservar puntos (0 = infinito)
-        #self.declare_parameter('voxel_leaf', 0.10)             # tamaño de voxel (m); 0 o <0 desactiva
-        #self.declare_parameter('max_points', 300000)           # límite duro de puntos
-        self.declare_parameter('publish_rate_hz', 5.0)         # frecuencia de publicación del acumulado
+        self.declare_parameter('fixed_frame', 'radar_sensor') # frame destino para acumular
+        #self.declare_parameter('history_secs', 30.0) # ventana temporal (seg) para conservar puntos (0 = infinito)
+        #self.declare_parameter('voxel_leaf', 0.10) # tamaño de voxel (m); 0 o <0 desactiva
+        #self.declare_parameter('max_points', 300000) # límite duro de puntos
+        self.declare_parameter('publish_rate_hz', 5.0) # frecuencia de publicación del acumulado
         self.declare_parameter('gps_max_dt', 10.0)
 
         p = self.get_parameter
-        self.fixed_frame   = p('fixed_frame').value
-        #self.history_secs  = float(p('history_secs').value)
-        #self.voxel_leaf    = float(p('voxel_leaf').value)
-        #self.max_points    = int(p('max_points').value)
-        self.pub_rate_hz   = float(p('publish_rate_hz').value)
+        self.fixed_frame = p('fixed_frame').value
+        #self.history_secs = float(p('history_secs').value)
+        #self.voxel_leaf = float(p('voxel_leaf').value)
+        #self.max_points = int(p('max_points').value)
+        self.pub_rate_hz  = float(p('publish_rate_hz').value)
         self.gps_max_dt = float(p('gps_max_dt').value)
 
         self.fix_buffer = deque(maxlen=2000)

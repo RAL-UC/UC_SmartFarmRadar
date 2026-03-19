@@ -7,17 +7,20 @@ from pathlib import Path
 from radar_msg.msg import RadarCartesian
 from builtin_interfaces.msg import Time as TimeMsg
 
+# direccion de guardado de datos
 SAVE_DIR = Path('/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/experimetos_pao')
 
 class CartPlot(Node):
     def __init__(self):
         super().__init__('cart_plot')
+        # suscriptor
         self.create_subscription(RadarCartesian, 'radar_cartesian_accum', self.cb, 10)
 
-        self.last_pose_id = None
-        self.last_pts = None        # (N,3) float32
-        self.last_ts = None         # (N,) float64
+        self.last_pose_id = None # id posiciob bunker
+        self.last_pts = None # (N,3) float32 coordenadas
+        self.last_ts = None # (N,) float64 tiempo
 
+        # coordenadas gps
         self.last_gps_e = None
         self.last_gps_n = None
         self.last_gps_alt = None
@@ -28,60 +31,64 @@ class CartPlot(Node):
         self.last_gps_ts = None
         self.last_gps_frame = ""
 
+        # configuracion de visualizacion
         plt.ion()
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
-        (self.ln,) = self.ax.plot([], [], '.', markersize=5, color='green')
-        self.map_size = 10.0          # lado del cuadro fijo [m]
-        self.center_x = 0.0          # centro X [m]
-        self.center_y = 0.0          # centro Y [m]
-        self._apply_fixed_view()     # encuadre inicial
-        self.ax.set_xlabel('X [m]')
-        self.ax.set_ylabel('Y [m]')
+        (self.ln,) = self.ax.plot([], [], '.', markersize=5, color='green') # puntos verdes
+        self.map_size = 10.0 # lado del cuadro fijo [m]
+        self.center_x = 0.0 # centro X [m]
+        self.center_y = 0.0 # centro Y [m]
+        self.apply_fixed_view() # encuadre inicial
+        self.ax.set_xlabel('X [m]') # detalle eje
+        self.ax.set_ylabel('Y [m]') # detalle eje
         self.ax.set_title('Puntos detectados (Cartesianos)')
         self.ax.grid(True, linestyle='--', linewidth=0.5)
 
-        # Etiqueta fija para mostrar pose activo y # de puntos
+        # Etiqueta fija para mostrar pose activo y cantidad de puntos
         #self.info_text = self.ax.text(
-        #    0.02, 0.98, 'pose: -  | N: 0',
+        #    0.02, 0.98, 'pose: - | N: 0',
         #    transform=self.ax.transAxes, va='top', ha='left',
         #    fontsize=9, bbox=dict(boxstyle='round,pad=0.2', fc='white', ec='0.7', alpha=0.8)
         #)
 
+        # data
         SAVE_DIR.mkdir(parents=True, exist_ok=True)
-        self.timer = self.create_timer(0.05, self.refresh)
+        self.timer = self.create_timer(0.05, self.refresh) # timer de refresco de visualizacion
 
         self.cur_x = np.array([], dtype=np.float32)
         self.cur_y = np.array([], dtype=np.float32)
         self.active_pose_id = -1
-        self._need_hard_clear = False
-        self._have_data = False
+        self.need_hard_clear = False
+        self.have_data = False
 
         plt.show(block=False)
 
     @staticmethod
-    def _time_to_sec(t: TimeMsg) -> float:
+    def time_to_sec(t: TimeMsg) -> float:
+        """transportar de nano segundos a segundos"""
         return float(t.sec) + float(t.nanosec) * 1e-9
     
-    def _apply_fixed_view(self):
+    def apply_fixed_view(self):
+        """configuracion de vista fija"""
         half = self.map_size / 2.0
         self.ax.set_aspect('equal', adjustable='box')
         self.ax.set_xlim(self.center_x - half, self.center_x + half)
         self.ax.set_ylim(self.center_y - half, self.center_y + half)
     
-    def _save_snapshot(self, pose_id: int, pts: np.ndarray, ts: np.ndarray):
+    def save_snapshot(self, pose_id: int, pts: np.ndarray, ts: np.ndarray):
         """Guarda el último batch de una pose en .npz (points Nx3, timestamps N)."""
         if pts is None or pts.size == 0 or pose_id is None:
             return
         fname = SAVE_DIR / f'pose_{pose_id}.npz'
-        def arr_or_empty(a, dtype):
+        def arr_or_empty(a, dtype): # informacion o vacio
             if a is None:
                 return np.empty((0,), dtype=dtype)
             return np.asarray(a, dtype=dtype)
         
         np.savez(
             fname,
-            points=pts.astype(np.float32),           # Nx3
-            timestamps=ts.astype(np.float64),        # N
+            points=pts.astype(np.float32), # Nx3
+            timestamps=ts.astype(np.float64), # N
             pose_id=np.int32(pose_id),
             # ----- GPS opcional por punto -----
             gps_e=arr_or_empty(self.last_gps_e, np.float32),
@@ -99,11 +106,12 @@ class CartPlot(Node):
     def cb(self, msg: RadarCartesian):
         pose_id = getattr(msg, 'bunker_pose_id', -1)
 
-        # 2) limpiar buffers si cambia la pose (evita solape entre poses)
+        # limpiar buffers si cambia la pose (evita solape entre poses)
         if self.last_pose_id is None or pose_id != self.last_pose_id:
-            #self._save_snapshot(self.last_pose_id, self.last_pts, self.last_ts)
-            self._need_hard_clear = True 
+            #self.save_snapshot(self.last_pose_id, self.last_pts, self.last_ts)
+            self.need_hard_clear = True 
 
+        # orden de data para guardado
         x_raw = np.asarray(msg.x, dtype=np.float32)
         y_raw = np.asarray(msg.y, dtype=np.float32)
         z_raw = np.asarray(msg.z, dtype=np.float32)
@@ -113,7 +121,7 @@ class CartPlot(Node):
 
         stamps = getattr(msg, 'stamps', None)
         if stamps and len(stamps) == len(x_raw):
-            ts_all = np.array([self._time_to_sec(t) for t in stamps], dtype=np.float64)
+            ts_all = np.array([self.time_to_sec(t) for t in stamps], dtype=np.float64)
             ts = ts_all[mask]
         else:
             t0 = float(msg.header.stamp.sec) + 1e-9 * float(msg.header.stamp.nanosec)
@@ -128,23 +136,23 @@ class CartPlot(Node):
                 return arr_np[mask]
             if arr_np.size == pts.shape[0]:
                 return arr_np
-            # tamaño inesperado → rellena con NaN manteniendo longitud N
+            # tamaño inesperado -> rellena con NaN manteniendo longitud N
             return np.full((pts.shape[0],), np.nan, dtype=dtype)
         
-        gps_e   = align_opt('gps_e',   np.float32)
-        gps_n   = align_opt('gps_n',   np.float32)
+        gps_e = align_opt('gps_e', np.float32)
+        gps_n = align_opt('gps_n', np.float32)
         gps_alt = align_opt('gps_alt', np.float32)
-        gps_qx  = align_opt('gps_qx',  np.float32)
-        gps_qy  = align_opt('gps_qy',  np.float32)
-        gps_qz  = align_opt('gps_qz',  np.float32)
-        gps_qw  = align_opt('gps_qw',  np.float32)
+        gps_qx = align_opt('gps_qx', np.float32)
+        gps_qy = align_opt('gps_qy', np.float32)
+        gps_qz = align_opt('gps_qz', np.float32)
+        gps_qw = align_opt('gps_qw', np.float32)
 
         gps_stamps = getattr(msg, 'gps_stamps', None)
         if gps_stamps and len(gps_stamps) == len(x_raw):
-            gps_ts_all = np.array([self._time_to_sec(t) for t in gps_stamps], dtype=np.float64)
+            gps_ts_all = np.array([self.time_to_sec(t) for t in gps_stamps], dtype=np.float64)
             gps_ts = gps_ts_all[mask]
         elif gps_stamps and len(gps_stamps) == pts.shape[0]:
-            gps_ts = np.array([self._time_to_sec(t) for t in gps_stamps], dtype=np.float64)
+            gps_ts = np.array([self.time_to_sec(t) for t in gps_stamps], dtype=np.float64)
         else:
             # si no viene gps_stamps por punto, replica header o deja NaN según prefieras
             gps_ts = np.full((pts.shape[0],), np.nan, dtype=np.float64)
@@ -155,29 +163,29 @@ class CartPlot(Node):
         self.last_pts = pts
         self.last_ts = ts
 
-        self.last_gps_e   = gps_e
-        self.last_gps_n   = gps_n
+        self.last_gps_e = gps_e
+        self.last_gps_n = gps_n
         self.last_gps_alt = gps_alt
-        self.last_gps_qx  = gps_qx
-        self.last_gps_qy  = gps_qy
-        self.last_gps_qz  = gps_qz
-        self.last_gps_qw  = gps_qw
-        self.last_gps_ts  = gps_ts
+        self.last_gps_qx = gps_qx
+        self.last_gps_qy = gps_qy
+        self.last_gps_qz = gps_qz
+        self.last_gps_qw = gps_qw
+        self.last_gps_ts = gps_ts
         self.last_gps_frame = gps_frame
 
 
         self.cur_x = x
         self.cur_y = y
         self.active_pose_id = pose_id
-        self._have_data = (pts.shape[0] > 0)
+        self.have_data = (pts.shape[0] > 0)
 
     def refresh(self):
-        if not self._have_data:
+        if not self.have_data:
             return
         
-        if self._need_hard_clear:
-            self.ax.cla()  # limpia TODO el axes
-            # recrear artistas y estilos
+        if self.need_hard_clear:
+            self.ax.cla()  # limpia todo el axes
+            # recrear figura y estilos
             (self.ln,) = self.ax.plot([], [], '.', markersize=5, color='green')
             self.ax.set_xlabel('X [m]')
             self.ax.set_ylabel('Y [m]')
@@ -187,14 +195,14 @@ class CartPlot(Node):
             #    va='top', ha='left', fontsize=9,
             #    bbox=dict(boxstyle='round,pad=0.2', fc='white', ec='0.7', alpha=0.8)
             #)
-            self._need_hard_clear = False
+            self.need_hard_clear = False
 
         self.ln.set_data(self.cur_x, self.cur_y)
 
         # Aquí se respetan los rangos reales de los datos, sin forzar cuadrado
         #self.ax.relim()
         #self.ax.autoscale_view()
-        self._apply_fixed_view()
+        self.apply_fixed_view()
         self.ax.set_title(f"XY Map Tree-Facing Capture [{self.active_pose_id}]")
         #self.info_text.set_text(f'pose: {self.active_pose_id}  |  N: {self.cur_x.size}')
 

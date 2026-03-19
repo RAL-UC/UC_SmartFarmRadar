@@ -12,6 +12,8 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
+# fa_rate = Pfa = Probabilidad de detectar un blanco cuando en realidad solo hay ruido
+
 def cfar(X_k, num_guard_cells, num_ref_cells, bias=1, cfar_method='average', fa_rate=0.2):
     N = X_k.size
     cfar_values = np.ma.masked_all(X_k.shape)

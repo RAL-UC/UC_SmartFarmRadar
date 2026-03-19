@@ -94,7 +94,7 @@ class RadarNode(Node):
 
         # servidor basado en acciones
         # tipo de accion, nombre de la accion, funcion callback
-        self._beamform_server = ActionServer(self, RadarBeamform, 'radar_beamform', self.execute_beamform_cb)
+        self.beamform_server = ActionServer(self, RadarBeamform, 'radar_beamform', self.execute_beamform_cb)
 
         # ventana que multiplica los valores antes de la transformada de fourier
         #self.win_funct = np.ones(GOOD_RAMP_SAMPLES, dtype=np.float64) # ventana rectangular

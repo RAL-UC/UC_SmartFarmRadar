@@ -4,7 +4,7 @@ from rclpy.node import Node
 import numpy as np
 from radar_msg.msg import RadarData
 import os
-import time
+#import time
 from pathlib import Path
 from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
 #from radar_package.parametros import *

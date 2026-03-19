@@ -15,6 +15,7 @@ from ament_index_python.packages import get_package_share_directory # recursos
 
 # recursos
 pkg_share = get_package_share_directory('radar_package')
+# filtro resta de fondo
 path_medicion_fondo = os.path.join(pkg_share, 'resource', 'medicion_fondo_centro2.npy')
 
 class RadarVisualizer(Node):
@@ -69,18 +70,17 @@ class RadarVisualizer(Node):
 
         self.medicion_fondo = np.load(path_medicion_fondo) # carga medicion de fondo en datos de radar
 
-        self.filtered_data = None # data filtrada y desplazada en offset
-        self.filtered_freq = None # eje x filtrado
-
         # Funciones de conversión freq <-> range (eje inferior y superior)
         self.freq_to_distance = lambda f: (f - self.signal_freq_hz - self.range_offset_hz) * self.speed_of_light / (2 * self.slope_hz_per_s)
         self.distance_to_freq = lambda d: self.signal_freq_hz + self.range_offset_hz + (d * 2 * self.slope_hz_per_s / self.speed_of_light)
 
         # Ejes y datos que se rellenan en el primer mensaje
+        self.filtered_data = None # data filtrada "y" desplazada en offset
+        self.filtered_freq = None # eje "x" filtrado
         self.freq = None # eje de frecuencias
-        self.filtered_data = None
         self.valid_indices = None # índices >= 0 m
 
+        # aplicacion de ventana a los datos antes de la FFT
         self.win_funct = np.ones(self.good_ramp_samples, dtype=np.float64) # ventana rectangular
         #self.win_funct = np.blackman(self.good_ramp_samples) # ventana blackman -> posiblemente se deba considerar offset
         #self.win_funct = np.hamming(self.good_ramp_samples)
@@ -103,10 +103,11 @@ class RadarVisualizer(Node):
         self.line_noise, = self.ax.plot([], [], ':', lw=1.5, label='Noise Variance')
         self.line_noise.set_visible(False)
 
+        # informacion de los ejes
         self.ax.set_xlabel("Range [m]")
         self.ax.set_ylabel("Magnitude (dB)") # normalizada min-max
 
-        # eje secundario de rango en la parte superior
+        # eje secundario de frecuencia en la parte superior
         self.secax = self.ax.secondary_xaxis('top', functions=(self.distance_to_freq, self.freq_to_distance))
         self.secax.set_xlabel("Frequency [Hz]")
 
@@ -116,13 +117,15 @@ class RadarVisualizer(Node):
         self.sld_angle = Slider(ax_slider, 'Steering angle', self.rbeam_angledeg_min, self.rbeam_angledeg_max, valinit=init_angle, valstep=self.rbeam_angledeg_step)
 
         # CONTROLES INTERACTIVOS
-        # Slider para num_guard_cells
+        # Slider para cfar_guard_cells
         ax_guard = plt.axes([0.015, 0.30, 0.015, 0.60])
         self.sld_guard = Slider(ax_guard, "Guard\n(N)", 1, 30, valinit=self.cfar_guard_cells, valstep=1, orientation='vertical')
 
+        # Slider para cfar_reference_cells
         ax_ref = plt.axes([0.045, 0.30, 0.015, 0.60])
         self.sld_ref = Slider(ax_ref, "Ref\n(N)", 1, 70, valinit=self.cfar_reference_cells, valstep=1, orientation='vertical')
 
+        # Slider para cfar_bias
         ax_bias = plt.axes([0.075, 0.30, 0.015, 0.60])
         self.sld_bias = Slider(ax_bias, "Bias\n(dB)", 0.0, 30.0, valinit=self.cfar_bias, valstep=1, orientation='vertical')
 
@@ -135,12 +138,7 @@ class RadarVisualizer(Node):
         ax_method = plt.axes([0.01, 0.02, 0.12, 0.15])
         self.radio_method = RadioButtons(ax_method, ['average', 'greatest', 'smallest', 'false_alarm'], active=0)
 
-        #self.legend = self.ax.legend(loc='upper right')
-
-        #self._mpl_timer = None
-        #self._pending_idx = 0
-
-        self.sld_angle.on_changed(self.on_slider_change)
+        self.sld_angle.on_changed(self.on_slider_change) # callback ante eventos
         # disparo de actualización
         for ctl in (self.sld_guard, self.sld_ref, self.sld_bias, self.sld_fa):
             ctl.on_changed(lambda v: self.update_display(int(self.sld_angle.val)))
@@ -151,6 +149,7 @@ class RadarVisualizer(Node):
         self.create_timer(0.05, lambda: plt.pause(0.001))
 
     def _set_fa_visible(self, visible: bool):
+        # ocultar o mostrar barras de metodo falta alarma en CFAR
         self.sld_fa.ax.set_visible(bool(visible))
         if not visible:
             # si lo ocultas, también oculta la línea de ruido (por coherencia)
@@ -159,6 +158,7 @@ class RadarVisualizer(Node):
 
     def update_display(self, angle_val: int):
         """Dibuja FFT + CFAR solamente en los índices válidos"""
+        # configuracion de menu interactivo
         if self.filtered_data is None or self.freq is None or self.filtered_data.size == 0:
             use_fa = (self.radio_method.value_selected == "false_alarm")
             self._set_fa_visible(use_fa)
@@ -166,6 +166,7 @@ class RadarVisualizer(Node):
         idx = self.ang_to_idx(angle_val)
         mag = self.filtered_data[idx, :]
 
+        # filtro min max
         #mag_min = np.min(mag)
         #mag_max = np.max(mag)
         #
@@ -179,9 +180,9 @@ class RadarVisualizer(Node):
         nr = int(self.sld_ref.val) # celdas de referencia
         b = float(self.sld_bias.val) # valor bias
         m = self.radio_method.value_selected # metodo de calculo del umbral
-        fa_rate = float(self.sld_fa.val)
+        fa_rate = float(self.sld_fa.val) # slide valor de probabilidad de falsa alarma
 
-        total_ext = ng + nr
+        total_ext = ng + nr # extension de mediones
         mag_ext= self.extend_with_means(mag, total_ext)
 
         # CFAR sobre mag filtrada
@@ -213,6 +214,7 @@ class RadarVisualizer(Node):
         # Detectar los no enmascarados (masked = False)
         #det_indices = np.where(~targets.mask)[0] # obtener valores objetivos
 
+        # transformacion de frecuencias a distancia
         x = self.freq_to_distance(self.freq)
 
         # actualizar líneas y puntos
@@ -233,9 +235,6 @@ class RadarVisualizer(Node):
     def listener_callback(self, msg: RadarData):
         self.get_logger().info(f'stamp={msg.header.stamp.sec}.{msg.header.stamp.nanosec:09d}, id="{msg.header.frame_id}"')
         # Reconstruir matriz original
-        #arr = np.array(msg.data, dtype=msg.dtype) # arreglo vectorial
-        #self.get_logger().info(f"mat.dtype {msg.data_real}")
-
         try:
             np_dtype = np.dtype(msg.dtype)
         except Exception:
@@ -256,10 +255,8 @@ class RadarVisualizer(Node):
         s_mag = np.maximum(s_mag, 10 ** (-15))
         mat = 20 * np.log10(s_mag / (2 ** 11)) # s_dbfs
         
-
-        #mat = mat[:161, :]
+        # filtro de medicion de fondo
         #self.get_logger().info(f"{self.medicion_fondo.shape} | {mat.shape}")
-
         if self.medicion_fondo is not None:
             if self.medicion_fondo.shape == mat.shape:
                 mat = mat - self.medicion_fondo
@@ -293,7 +290,7 @@ class RadarVisualizer(Node):
             self.sld_angle.ax.set_visible(True)
         
         self.freq = freq[self.valid_indices]
-        # Actualizar slider sin mover thumb
+        # Actualizar slider sin mover thumb (boton de slider)
         #self.sld_angle.valmax = n_steering_angle - 1
         #self.sld_angle.ax.set_xlim(self.sld_angle.valmin, self.sld_angle.valmax)
         has_data = self.filtered_data is not None and self.filtered_data.size > 0
@@ -306,6 +303,7 @@ class RadarVisualizer(Node):
         self.update_display(angle_val)
 
     def on_slider_change(self, val: float):
+        # ante cambios del boton de slider para angulo
         angle_val = int(val)
         
         if self.filtered_data is not None:
@@ -322,7 +320,7 @@ class RadarVisualizer(Node):
 
     def extend_with_means(self, mag, total_guard_ref):
         """
-        Extiende el vector mag agregando `total_guard_ref` celdas al inicio y al final,
+        Extiende el vector magnitud (mag) agregando `total_guard_ref` celdas al inicio y al final,
         usando el promedio de las primeras y últimas `total_guard_ref` celdas reales
         """
         mean_start = np.mean(mag[:total_guard_ref])

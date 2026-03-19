@@ -31,9 +31,9 @@ class RadarWaterfall(Node):
         self.declare_parameter('rbeam_angledeg_step', 1)
         # fuera de archivos de configuracion
         self.declare_parameter('topic', 'radar_data')
-        self.declare_parameter('num_slices', 100)           # alto del waterfall (n° de filas/tiempo)
-        self.declare_parameter('db_low', -60.0)             # nivel bajo (dB) para clim
-        self.declare_parameter('db_high', 0.0)              # nivel alto (dB) para clim
+        self.declare_parameter('num_slices', 100) # alto del waterfall (n° de filas/tiempo)
+        self.declare_parameter('db_low', -60.0) # nivel bajo (dB) para clim
+        self.declare_parameter('db_high', 0.0) # nivel alto (dB) para clim
 
         # carga de valores
         # radar.yaml

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from radar_msg.msg import RadarData
 from radar_package.processing.target_detection_dbfs import cfar # objetivos de deteccion
 #from radar_package.parametros import *
-import time
+#import time
 
 # debo mejorar recurso de datos al infinito
 path_base_data = "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/infinito1.npy"
