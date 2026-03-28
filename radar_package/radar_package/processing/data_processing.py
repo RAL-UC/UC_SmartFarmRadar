@@ -7,6 +7,7 @@ import numpy as np
 from std_msgs.msg import Header
 
 from radar_msg.msg import RadarData
+from radar_msg.msg import Ptu
 from radar_msg.msg import RadarCartesian
 
 from radar_package.processing.target_detection_dbfs import cfar
@@ -70,8 +71,12 @@ class RadarSphericalToCartesian(Node):
         self.range_filter_max_m = self.get_parameter('range_filter_max_m').value
 
         # suscriptor y publicador
-        self.sub = self.create_subscription(RadarData, 'radar_data', self.cb_radar, 10)
+        self.sub_radar = self.create_subscription(RadarData, 'radar_data', self.cb_radar, 10)
+        self.sub_ptu = self.create_subscription(Ptu, 'ptu_data', self.cb_ptu, 10)
         self.pub = self.create_publisher(RadarCartesian, 'radar_cartesian', 10)
+
+        self.last_pan_deg = None
+        self.last_tilt_deg = None
 
         # Recursos: medición de fondo
         try:
@@ -109,10 +114,22 @@ class RadarSphericalToCartesian(Node):
 
     def unpad(self, v: np.ndarray, total_guard_ref: int) -> np.ndarray:
         return v[total_guard_ref:-total_guard_ref] if total_guard_ref > 0 else v
+    
+    # PTU
+    def cb_ptu(self, msg: Ptu):
+        self.last_pan_deg = msg.pan_deg
+        self.last_tilt_deg = msg.tilt_deg
 
     # ------------------ Callback principal ------------------
 
     def cb_radar(self, msg: RadarData):
+        if self.last_pan_deg is None or self.last_tilt_deg is None:
+            self.get_logger().warn("Aún no hay datos de PTU")
+            return
+        
+        pan_deg  = self.last_pan_deg
+        tilt_deg = self.last_tilt_deg
+        
         # 1) Reconstruir matriz (n_steer × n_bins)
         try:
             np_dtype = np.dtype(msg.dtype)
@@ -209,9 +226,6 @@ class RadarSphericalToCartesian(Node):
 
         # angulos absolutos
         # θ_abs = theta_pan + theta_beam (azimuth); phi_abs = tilt_deg (elevación)
-        pan_deg  = msg.pan_deg
-        tilt_deg = msg.tilt_deg
-
         theta_abs_deg = - pan_deg + self.theta_beam_deg[det_angle_idx]
         phi_abs_deg = np.full_like(theta_abs_deg, tilt_deg, dtype=np.float64)
 
@@ -247,7 +261,7 @@ class RadarSphericalToCartesian(Node):
         out.y = y.astype(np.float32).tolist()
         out.z = z.astype(np.float32).tolist()
 
-        out.bunker_pose_id = msg.bunker_pose_id
+        out.robot_pose_id = msg.robot_pose_id
         # Si tienes un campo opcional de intensidad y quieres llenarlo:
         # intens = mat[det_angle_idx, det_range_idx]
         # if hasattr(out, 'intensity'):

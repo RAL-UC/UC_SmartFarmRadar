@@ -1,6 +1,9 @@
 # Goal
-int32 pan_deg           # si viene vacío, usa por defecto self.ptu_angles
-int32 tilt_deg
+#int32 pan_deg           # si viene vacío, usa por defecto self.ptu_angles
+#int32 tilt_deg
+
+# si viene vacío, usa por defecto self.ptu_angles
+radar_msg/Ptu target_ptu
 
 ---
 # Result

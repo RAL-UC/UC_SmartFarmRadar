@@ -3,7 +3,7 @@
 <package format="3">
   <name>state_machine</name>
   <version>0.0.0</version>
-  <description>Máquina de estados del sistema bunker, radar, gps, PTU</description>
+  <description>Máquina de estados del sistema plataforma movil, radar, gps, PTU</description>
     <maintainer email="dammr@uc.cl">Diego Muñoz Rojas</maintainer>
   <license>MIT License</license>
 

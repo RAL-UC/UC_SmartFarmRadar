@@ -4,7 +4,7 @@ package_name = 'state_machine'
 info_version = '0.0.0'
 info_autor = 'Diego Muñoz Rojas'
 info_email = 'dammr@uc.cl'
-info_descripcion = 'Máquina de estado del sistema bunker, radar, PTU y GPS'
+info_descripcion = 'Máquina de estado del sistema plataforma movil, radar, PTU y GPS'
 info_licencia = 'MIT License'
 
 setup(

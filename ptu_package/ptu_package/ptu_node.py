@@ -116,6 +116,9 @@ class PtuRoutineNode(Node):
         self.success = False
         self.final_message = "OK"
 
+        pan_deg  = int(goal_handle.request.target_ptu.pan_deg)
+        tilt_deg = int(goal_handle.request.target_ptu.tilt_deg)
+
         pan_deg = goal_handle.request.pan_deg
         tilt_deg = goal_handle.request.tilt_deg
 

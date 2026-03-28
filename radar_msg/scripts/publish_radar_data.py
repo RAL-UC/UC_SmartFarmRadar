@@ -12,7 +12,7 @@ class RadarDataPublisher(Node):
         # Parámetro: ruta al .npy
         self.declare_parameter('ruta_npy', '/home/diego/Desktop/magister/magister_ws/src/radar_msg/scripts/pos_0_0_angle_-30_0.npy')
         # Programa el callback a 5 s
-        self._timer = self.create_timer(5.0, self.publish_data_radar)
+        self.timer = self.create_timer(5.0, self.publish_data_radar)
 
     def publish_data_radar(self):
         ruta = self.get_parameter('ruta_npy').get_parameter_value().string_value

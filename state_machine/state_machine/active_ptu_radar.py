@@ -11,7 +11,7 @@ from std_msgs.msg import Bool
 
 from radar_msg.msg import RadarData
 from radar_msg.action import RadarBeamform, PtuSweep
-from radar_package.parametros import *
+#from radar_package.parametros import *
 
 class PtuRadarScan(Node):
     """
@@ -74,7 +74,7 @@ class PtuRadarScan(Node):
         self.is_running = False
         self._run_lock = threading.Lock() # Solo un hilo a la vez puede tener el lock, los demás hilos esperan hasta que se libere
 
-        self.bunker_pose_id = -1 # posicion determinada del bunker -> cambiar por gps
+        self.robot_pose_id = -1 # posicion determinada del robot -> cambiar por gps
 
         self.get_logger().info(
             f"Listo. Puntos={num_pos} | pan_list={self.pan_list} | tilt_list={self.tilt_list} | "
@@ -140,7 +140,7 @@ class PtuRadarScan(Node):
             if self.is_running: # hay una rutina activa?
                 self.get_logger().warn("Ya hay una rutina en ejecución; ignoro nuevo trigger.")
                 return
-            self.bunker_pose_id += 1 # movimiento del bunker manual
+            self.robot_pose_id += 1 # movimiento del robot manual/forzado
             self.is_running = True
 
         # Ejecutar rutina en hilo aparte
@@ -175,8 +175,10 @@ class PtuRadarScan(Node):
                     # 1) PTU
                     self.get_logger().info(f"{tag} PTU pan={pan}°, tilt={tilt}°")
                     ptu_goal = PtuSweep.Goal()
-                    ptu_goal.pan_deg = int(pan)
-                    ptu_goal.tilt_deg = int(tilt)
+                    # mensaje PTU dentro del Goal
+                    #ptu_goal.target_ptu.header.stamp = self.get_clock().now().to_msg()
+                    ptu_goal.target_ptu.pan_deg  = int(pan)
+                    ptu_goal.target_ptu.tilt_deg = int(tilt)
                     ok, ptu_res, err = self._send_goal_wait_result(self.ptu_client, ptu_goal, 'ptu_sweep') # enviar objetivo y esperar resultado
                     if not ok or (hasattr(ptu_res, 'success') and not ptu_res.success):
                         msg = getattr(ptu_res, 'message', '')
@@ -209,7 +211,7 @@ class PtuRadarScan(Node):
                         self.get_logger().error(f"{tag} Inconsistencia: cols {cols_expected} vs {rd.cols}.")
                         return
                 
-                    rd.bunker_pose_id = int(self.bunker_pose_id)
+                    rd.robot_pose_id = int(self.robot_pose_id)
 
                     self.pub_final.publish(rd)
                     self.get_logger().info(f"{tag} Publicado RadarData ({rd.rows}x{rd.cols}) en '{self.publish_topic}'")

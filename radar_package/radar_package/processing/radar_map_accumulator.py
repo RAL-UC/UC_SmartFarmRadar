@@ -66,7 +66,7 @@ class RadarMapAccumulator(Node):
         # lanza un hilo separado que procesa los mensajes de TF, así el buffer se va actualizando en paralelo aunque tu nodo esté ocupado en otra cosa
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self, spin_thread=True)
 
-        # --------------- Almacenamiento por bunker_pose_id ---------------
+        # --------------- Almacenamiento por robot_pose_id ---------------
         # pose_maps: { pose_id: {"pts": float32[N,3], "ts": float64[N]} }
         self.pose_maps = {}
         # pose activo (último visto). Hasta recibir algo, None.
@@ -167,14 +167,14 @@ class RadarMapAccumulator(Node):
         if len(msg.x) == 0:
             return
         
-        pose_id = int(msg.bunker_pose_id)
+        pose_id = int(msg.robot_pose_id)
 
         if self.active_pose_id is None or pose_id != self.active_pose_id:
             prev = self.active_pose_id
             self.active_pose_id = pose_id
             self._ensure_pose_slot(pose_id)
             self.get_logger().info(
-                f"Cambio de bunker_pose_id {prev} → {pose_id}. "
+                f"Cambio de robot_pose_id {prev} → {pose_id}. "
                 f"Acumulando y publicando ahora el sub-mapa de pose {pose_id}."
             )
 
@@ -340,7 +340,7 @@ class RadarMapAccumulator(Node):
         msg_rc.gps_qw   = slot["gps_qw"].astype(np.float32).tolist()
         msg_rc.gps_frame = slot.get("gps_frame", "")
 
-        msg_rc.bunker_pose_id = int(pose_id)
+        msg_rc.robot_pose_id = int(pose_id)
 
          # construir lista de Time por punto
         stamps = []
@@ -369,13 +369,13 @@ class RadarMapAccumulator(Node):
     #    pose_id = self.active_pose_id
     #    self.pose_maps[pose_id]["pts"] = np.empty((0, 3), dtype=np.float32)
     #    self.pose_maps[pose_id]["ts"]  = np.empty((0,),   dtype=np.float64)
-    #    self.get_logger().info(f"Sub-mapa del bunker_pose_id {pose_id} limpiado.")
+    #    self.get_logger().info(f"Sub-mapa del robot_pose_id {pose_id} limpiado.")
     #    return res
     #
     #def srv_clear_all_cb(self, req, res):
     #    self.pose_maps.clear()
     #    self.active_pose_id = None
-    #    self.get_logger().info("Todos los sub-mapas (por bunker_pose_id) fueron limpiados.")
+    #    self.get_logger().info("Todos los sub-mapas (por robot_pose_id) fueron limpiados.")
     #    return res
 
 

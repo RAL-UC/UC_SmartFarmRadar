@@ -25,7 +25,7 @@ def generate_launch_description():
             executable='ptu_node_driver', 
             name='ptu_node_driver',
             parameters=[{
-                'serial_port': '/dev/ttyUSB0' # para pc bunker debe estar en ttyUSB1, pc host ttyUSB0 -> identificado de forma manual
+                'serial_port': '/dev/ttyUSB0' # para pc de rover debe estar en ttyUSB1, pc host ttyUSB0 -> identificado de forma manual
             }],
             output='screen',
         ),

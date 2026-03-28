@@ -10,7 +10,7 @@ float64[] data_real
 float64[] data_imag
 
 # pose del PTU al capturar
-int32 pan_deg
-int32 tilt_deg
+#int32 pan_deg
+#int32 tilt_deg
 
-uint32 bunker_pose_id
+#uint32 robot_pose_id

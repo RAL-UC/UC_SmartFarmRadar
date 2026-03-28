@@ -63,7 +63,7 @@ ros2 run state_machine state_machine
 ros2 bag record --all -o experimento_radar_ultimo
 
 
-Para mover el bunker:
+Para mover el plataforma movil:
 
 ros2 topic pub -1 /allow std_msgs/msg/Bool data:\ true\
 

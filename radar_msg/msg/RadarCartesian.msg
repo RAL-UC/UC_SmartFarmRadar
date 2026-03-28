@@ -16,4 +16,4 @@ float32[] gps_qw
 
 string gps_frame
 
-uint32 bunker_pose_id
+uint32 robot_pose_id

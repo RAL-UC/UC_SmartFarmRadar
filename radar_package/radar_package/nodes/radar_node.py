@@ -319,9 +319,9 @@ class RadarNode(Node):
         Ejecuta una adquisición beamforming y publica el RadarData resultante. 
         Devuelve success/message.
         """
-        pan  = int(goal_handle.request.pan_deg)
-        tilt = int(goal_handle.request.tilt_deg)
-        self.get_logger().info(f"[Radar] Goal: pan={pan}°, tilt={tilt}°")
+        #pan  = int(goal_handle.request.pan_deg)
+        #tilt = int(goal_handle.request.tilt_deg)
+        #self.get_logger().info(f"[Radar] Goal: pan={pan}°, tilt={tilt}°")
 
         feedback = RadarBeamform.Feedback()
         feedback.status = "Inicializando adquisición"
@@ -353,9 +353,9 @@ class RadarNode(Node):
             msg = RadarData()
             msg.header = Header()
             msg.header.stamp = self.get_clock().now().to_msg() # timestamp actual
-            msg.header.frame_id = 'radar_sensor'
-            msg.pan_deg = pan
-            msg.tilt_deg = tilt
+            #msg.header.frame_id = 'radar_sensor'
+            #msg.pan_deg = pan
+            #msg.tilt_deg = tilt
             msg.rows = mat.shape[0]
             msg.cols = mat.shape[1]
             # tipo de dato predefinido como float64 separado en reales e imaginarios
@@ -372,7 +372,7 @@ class RadarNode(Node):
 
             result = RadarBeamform.Result()
             result.success = True
-            result.message = f"Beamforming OK (pan={pan}°, tilt={tilt}°)"
+            #result.message = f"Beamforming OK (pan={pan}°, tilt={tilt}°)"
             result.radar_data = msg
             goal_handle.succeed()
             return result

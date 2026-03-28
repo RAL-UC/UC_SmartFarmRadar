@@ -16,7 +16,7 @@ class CartPlot(Node):
         # suscriptor
         self.create_subscription(RadarCartesian, 'radar_cartesian_accum', self.cb, 10)
 
-        self.last_pose_id = None # id posiciob bunker
+        self.last_pose_id = None # id posicion robot
         self.last_pts = None # (N,3) float32 coordenadas
         self.last_ts = None # (N,) float64 tiempo
 
@@ -104,7 +104,7 @@ class CartPlot(Node):
         self.get_logger().info(f'[CartPlot] Guardado {fname} | N={pts.shape[0]} | pose={pose_id}')
 
     def cb(self, msg: RadarCartesian):
-        pose_id = getattr(msg, 'bunker_pose_id', -1)
+        pose_id = getattr(msg, 'robot_pose_id', -1)
 
         # limpiar buffers si cambia la pose (evita solape entre poses)
         if self.last_pose_id is None or pose_id != self.last_pose_id:
