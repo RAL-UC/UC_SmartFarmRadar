@@ -117,3 +117,10 @@ git checkout main
 git fetch origin
 git reset --hard origin/main
 ```
+
+
+ros2 run state_machine active_radar
+
+
+ros2 param list /radar_node
+ros2 param get /radar_node num_chirps

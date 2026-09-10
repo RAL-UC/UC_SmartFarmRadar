@@ -15,6 +15,7 @@ find_package(action_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Ptu.msg"
   "msg/RadarData.msg"
   "msg/RadarCartesian.msg"
   "action/RadarBeamform.action"

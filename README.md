@@ -52,7 +52,7 @@ pip install numpy
 
 ### Construcción del workspace
 
-Desde la raíz del workspace:
+Desde la raíz del workspace UC_SmartFarmRadar:
 
 ```bash
 colcon build

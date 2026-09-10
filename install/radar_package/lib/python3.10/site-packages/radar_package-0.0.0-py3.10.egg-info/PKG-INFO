@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: radar-package
+Version: 0.0.0
+Summary: Paquete que contiene los nodos de procesamiento y adquisición de datos del radar
+Home-page: UNKNOWN
+Maintainer: Diego Muñoz Rojas
+Maintainer-email: dammr@uc.cl
+License: MIT License
+Platform: UNKNOWN
+Provides-Extra: test
+
+UNKNOWN
+

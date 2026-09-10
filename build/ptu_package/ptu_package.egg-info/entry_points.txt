@@ -1,0 +1,3 @@
+[console_scripts]
+ptu_node = ptu_package.ptu_node:main
+

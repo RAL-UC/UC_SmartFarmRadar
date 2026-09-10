@@ -18,6 +18,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'resource'), glob('resource/*.pkl') + glob('resource/*.npy')),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=[
         'setuptools',
@@ -42,9 +43,11 @@ setup(
             'radar_node = radar_package.nodes.radar_node:main',
             'medicion_fondo = radar_package.utils.medicion_fondo:main',
             'radar_visualizer = radar_package.visualization.radar_visualizer:main',
+            'radar_polar_visualizer = radar_package.visualization.radar_polar_visualizer:main',
             'data_processing = radar_package.processing.data_processing:main',
             'radar_map_accumulator = radar_package.processing.radar_map_accumulator:main',
             'mapa_cartesiano = radar_package.visualization.mapa_cartesiano:main',
+            'radar_raw_visualizer = radar_package.visualization.radar_raw_visualizer:main',
             # simulador
             'simulador_radar = radar_package.simulation.simulador_radar:main',
             'simulador_ptu = radar_package.simulation.simulador_ptu:main',

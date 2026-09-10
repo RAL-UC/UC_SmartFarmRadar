@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "radar_msg__py",
+		"source" : "/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/radar_msg/radar_msg__py"
+	}
+}

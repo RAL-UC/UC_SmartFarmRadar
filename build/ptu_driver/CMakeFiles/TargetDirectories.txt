@@ -1,0 +1,10 @@
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/uninstall.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/ptu_driver_uninstall.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/ptu_node_driver.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/test.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/edit_cache.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/rebuild_cache.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/list_install_components.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/install.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/install/local.dir
+/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_driver/CMakeFiles/install/strip.dir

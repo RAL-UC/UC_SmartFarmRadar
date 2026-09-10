@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>state_machine</name>
+  <version>0.0.0</version>
+  <description>Máquina de estados del sistema plataforma movil, radar, gps, PTU</description>
+    <maintainer email="dammr@uc.cl">Diego Muñoz Rojas</maintainer>
+  <license>MIT License</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+  
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>radar_msg</exec_depend>
+  <exec_depend>ral_bunker_msgs</exec_depend>
+  <exec_depend>action_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

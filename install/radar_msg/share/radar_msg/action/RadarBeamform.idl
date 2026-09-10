@@ -1,0 +1,32 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from radar_msg/action/RadarBeamform.action
+// generated code does not contain a copyright notice
+
+#include "radar_msg/msg/RadarData.idl"
+
+module radar_msg {
+  module action {
+    @verbatim (language="comment", text=
+      " Goal" "\n"
+      " ángulo en grados para el que se solicita el beamforming" "\n"
+      "int32 pan_deg" "\n"
+      "int32 tilt_deg")
+    struct RadarBeamform_Goal {
+      uint8 structure_needs_at_least_one_member;
+    };
+    @verbatim (language="comment", text=
+      "Result")
+    struct RadarBeamform_Result {
+      boolean success;
+
+      string message;
+
+      radar_msg::msg::RadarData radar_data;
+    };
+    @verbatim (language="comment", text=
+      "Feedback")
+    struct RadarBeamform_Feedback {
+      string status;
+    };
+  };
+};

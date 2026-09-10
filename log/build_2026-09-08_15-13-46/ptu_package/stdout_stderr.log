@@ -1,0 +1,35 @@
+running egg_info
+creating ../build/ptu_package/ptu_package.egg-info
+writing ../build/ptu_package/ptu_package.egg-info/PKG-INFO
+writing dependency_links to ../build/ptu_package/ptu_package.egg-info/dependency_links.txt
+writing entry points to ../build/ptu_package/ptu_package.egg-info/entry_points.txt
+writing requirements to ../build/ptu_package/ptu_package.egg-info/requires.txt
+writing top-level names to ../build/ptu_package/ptu_package.egg-info/top_level.txt
+writing manifest file '../build/ptu_package/ptu_package.egg-info/SOURCES.txt'
+reading manifest file '../build/ptu_package/ptu_package.egg-info/SOURCES.txt'
+writing manifest file '../build/ptu_package/ptu_package.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/build
+creating /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/build/lib
+creating /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/build/lib/ptu_package
+copying ptu_package/ptu_node.py -> /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/build/lib/ptu_package
+copying ptu_package/__init__.py -> /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/build/lib/ptu_package
+running install
+running install_lib
+creating /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/lib/python3.10/site-packages/ptu_package
+copying /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/build/lib/ptu_package/ptu_node.py -> /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/lib/python3.10/site-packages/ptu_package
+copying /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/build/lib/ptu_package/__init__.py -> /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/lib/python3.10/site-packages/ptu_package
+byte-compiling /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/lib/python3.10/site-packages/ptu_package/ptu_node.py to ptu_node.cpython-310.pyc
+byte-compiling /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/lib/python3.10/site-packages/ptu_package/__init__.py to __init__.cpython-310.pyc
+running install_data
+creating /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/share/ament_index
+creating /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/share/ament_index/resource_index
+creating /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/share/ament_index/resource_index/packages
+copying resource/ptu_package -> /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/share/ament_index/resource_index/packages
+copying package.xml -> /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/share/ptu_package
+running install_egg_info
+Copying ../build/ptu_package/ptu_package.egg-info to /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/lib/python3.10/site-packages/ptu_package-0.0.0-py3.10.egg-info
+running install_scripts
+Installing ptu_node script to /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/install/ptu_package/lib/ptu_package
+writing list of installed files to '/home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/build/ptu_package/install.log'

@@ -6,7 +6,7 @@ import adi # libreria de analog devices
 #import time # control temporal
 import numpy as np # calculo matematico
 # mensajes de ros
-from radar_msg.msg import RadarData
+from radar_msg.msg import RadarData # mensaje de radar personalizado
 from std_msgs.msg import Header
 #from std_msgs.msg import Bool
 import os # sistema
@@ -14,7 +14,7 @@ import os # sistema
 from ament_index_python.packages import get_package_share_directory # archivos de recursos
 #from radar_package.parametros import * # importar parametros
 from rclpy.action import ActionServer # acciones de ros2
-from radar_msg.action import RadarBeamform #accion de beamforming
+from radar_msg.action import RadarBeamform # accion de beamforming
 
 # recursos de calibracion
 pkg_share = get_package_share_directory('radar_package')
@@ -26,7 +26,9 @@ class MaxRetriesExceeded(Exception):
     pass
 
 # herencia de node, al instanciar se registra en el grafo de ROS2
+# a la izquierda del radar es angulo negativo y a la derecha del radar es positivo
 class RadarNode(Node):
+    # se alimenta el phaser no la raspberry
     def __init__(self):
         super().__init__('radar_node') # declarar herencia
 
@@ -256,7 +258,7 @@ class RadarNode(Node):
         power = 8 # potencia
         self.fft_size = int(2**power) # potencia de 2^8 = 256 a 4096
         self.num_samples_frame = int(tdd.frame_length_ms/1000*self.sample_rate_hz) # cuántas muestras hay en un frame TDD completo
-        #.get_logger().info(f"self.num_samples_frame: {self.num_samples_frame}")
+        #self.get_logger().info(f"self.num_samples_frame: {self.num_samples_frame}") # 900
         # aumento del tamaño de la FFT para que sea mayor que num_samples_frame
         while self.num_samples_frame > self.fft_size:     
             power=power+1
@@ -397,11 +399,15 @@ class RadarNode(Node):
             # se utiliza f_signal_freq = 10.25 GHz ya que el phaser escucha entre 10GHz y 10.5GHz
             # se utiliza desplazamiento de fase en un rango pequeño en base a la frecuencia central
             # introduce un error el cual es pequeño 
-            phase_delta = (2*np.pi * self.signal_freq_phaser_rx_hz * self.element_spacing_m * np.sin(np.radians(theta))) / self.speed_of_light
-            self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
-            
+            #phase_delta = (2*np.pi * self.signal_freq_phaser_rx_hz * self.element_spacing_m * np.sin(np.radians(theta))) / self.speed_of_light
+            # debe estar en grados
+            phase_delta = (360 * self.signal_freq_phaser_rx_hz * self.element_spacing_m * np.sin(np.radians(theta))) / self.speed_of_light
+            #self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
+            for element in range(0, len(self.my_phaser.elements)):
+                self.my_phaser.set_chan_phase(element, element*phase_delta, apply_cal=True)  
             #time.sleep(0.05) # esperar tiempo de configuracion
 
+            # pulso de disparo por hardware trigger o gatillo para iniciar la rampa de frecuencia (chirp FMCW)
             self.my_phaser._gpios.gpio_burst = 0
             self.my_phaser._gpios.gpio_burst = 1
             self.my_phaser._gpios.gpio_burst = 0
@@ -412,11 +418,11 @@ class RadarNode(Node):
             #self.get_logger().info(f"shape sum_data: {sum_data.shape}")
 
             #rx_bursts = np.zeros((NUM_CHIRPS, GOOD_RAMP_SAMPLES), dtype=np.complex128) # rx_bursts limpio
-            time_data = np.ones((self.num_chirps, self.fft_size), dtype=np.complex128)*1e-10 # fft_data limpio
+            time_data = np.ones((self.num_chirps, self.fft_size), dtype=np.complex128)*1e-10 # fft_data limpio, zero_padding
             # se reemplazan los valores por los recibidos dejando un margen inicial en valores pequeños para solo considerar los GOOD_RAMP_SAMPLES
 
             for burst in range(self.num_chirps): # para cada chirrido individual
-                # indicie inicial y final dentro del arreglo sum_data
+                # indice inicial y final dentro del arreglo sum_data
                 start_index = self.start_offset_samples + burst*self.num_samples_frame
                 stop_index = start_index + self.good_ramp_samples
                 #burst_data = np.ones(self.fft_size, dtype=np.complex128)*1e-10 # arreglo con tamaño fft_size complejo con valores pequeños
@@ -427,24 +433,26 @@ class RadarNode(Node):
                 # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
                 #burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = burst_slice
                 time_data[burst,self.start_offset_samples:(self.start_offset_samples+self.good_ramp_samples)] = burst_slice
+                #time_data[burst,:] = burst_slice
 
-            avg_time = np.mean(time_data[:,:], axis=0) 
+            #avg_time = np.mean(time_data[:,:], axis=0)
             #sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time))) # fft y shift a centro
             # redundancia en valor absoluto
             #s_mag = np.abs(sp) / self.sum_win_funct # calcula valor absoluto y aplica una normalización por la suma de los coeficientes de la ventana
             #s_mag = sp / self.sum_win_funct
             #s_mag = np.maximum(s_mag, 10 ** (-15)) # pone un piso minimo para evitar valores pequeños en s_mag y posteriormente -inf con el logaritmo
             # espectro en magnitud lineal (valor absoluto de la FFT, ya normalizado por la ventana)
-            # normalizando respecto al valor máximo posible de la ADC (full-scale) 12 bits con signo
+            # normalizando respecto al valor máximo posible del ADC (full-scale) 12 bits con signo
             # Por convención, la magnitud en decibeles de una señal se calcula como
             # 20 * log_10 (A/A_ref)
             # Si un bin de FFT tiene s_mag = 2048 -> 0dBFS
             # decibeles referidos al máximo teórico de la ADC
-            #s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
+            #s_dbfs = 20 * np.log10(s_mag / (2 ** 11)) # Decibelios respecto a la Escala Completa
             # se obtiene un rango desde -366.22 db a 0 aprox
 
             #radar_data_matriz.append(s_dbfs)
-            radar_data_matriz.append(avg_time)
+            #radar_data_matriz.append(avg_time)
+            radar_data_matriz.append(time_data)
 
         mat = np.vstack(radar_data_matriz) # shape (barrido en angulos, tamaño fft)
         
@@ -470,11 +478,16 @@ class RadarNode(Node):
         # se utiliza f_signal_freq = 10.25 GHz ya que el phaser escucha entre 10GHz y 10.5GHz
         # se utiliza desplazamiento de fase en un rango pequeño en base a la frecuencia central
         # introduce un error el cual es pequeño 
-        phase_delta = (2*np.pi * self.signal_freq_phaser_rx_hz * self.element_spacing_m * np.sin(np.radians(theta))) / self.speed_of_light
+        #phase_delta = (2*np.pi * self.signal_freq_phaser_rx_hz * self.element_spacing_m * np.sin(np.radians(theta))) / self.speed_of_light
+        # debe estar en grados
+        phase_delta = (360 * self.signal_freq_phaser_rx_hz * self.element_spacing_m * np.sin(np.radians(theta))) / self.speed_of_light
         self.my_phaser.set_beam_phase_diff(np.degrees(phase_delta))
-
+        #for element in range(0, len(self.my_phaser.elements)):
+        #    self.my_phaser.set_chan_phase(element, element*phase_delta, apply_cal=True) 
+         
         #time.sleep(0.05)
 
+        # pulso de disparo por hardware trigger o gatillo para iniciar la rampa de frecuencia (chirp FMCW)
         self.my_phaser._gpios.gpio_burst = 0
         self.my_phaser._gpios.gpio_burst = 1
         self.my_phaser._gpios.gpio_burst = 0
@@ -485,7 +498,8 @@ class RadarNode(Node):
         #self.get_logger().info(f"shape sum_data: {sum_data.shape}")
 
         #rx_bursts = np.zeros((NUM_CHIRPS, GOOD_RAMP_SAMPLES), dtype=complex)
-        time_data = np.ones((self.num_chirps, self.fft_size), dtype=np.complex128) # fft_data limpio
+        
+        time_data = np.ones((self.num_chirps, self.fft_size), dtype=np.complex128) # fft_data limpio, zero_padding
         # se reemplazan los valores por los recibidos dejando un margen inicial en valores pequeños para solo considerar los GOOD_RAMP_SAMPLES
 
         for burst in range(self.num_chirps): # para cada chirrido individual
@@ -498,14 +512,16 @@ class RadarNode(Node):
 
             # Se coloca el chirp extraído en una posición dentro de burst_data, multiplicado por la ventana.
             #burst_data[self.start_offset_samples:(self.start_offset_samples+GOOD_RAMP_SAMPLES)] = rx_bursts[burst]*win_funct
-            time_data[burst,self.start_offset_samples:(self.start_offset_samples+self.good_ramp_samples)] = burst_slice
+            #time_data[burst,self.start_offset_samples:(self.start_offset_samples+self.good_ramp_samples)] = burst_slice
+            time_data[burst,:] = burst_slice
         
         avg_time = np.mean(time_data[:,:], axis=0) # promediar entre filas, matiene las columnas
         #sp = np.fft.fftshift(np.abs(np.fft.fft(avg_time)))
         # redundancia en valor absoluto
         #s_mag = np.abs(sp) / self.sum_win_funct
         #s_mag = np.maximum(s_mag, 10 ** (-15))
-        #s_dbfs = 20 * np.log10(s_mag / (2 ** 11))
+        # dbfs Decibels relative to Full Scale
+        #s_dbfs = 20 * np.log10(s_mag / (2 ** 11)) # Decibelios respecto a la Escala Completa
 
         mat = np.vstack(avg_time) # shape (1, tamaño fft)
         

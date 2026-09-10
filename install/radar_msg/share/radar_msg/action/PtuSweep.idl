@@ -1,0 +1,35 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from radar_msg/action/PtuSweep.action
+// generated code does not contain a copyright notice
+
+#include "radar_msg/msg/Ptu.idl"
+
+module radar_msg {
+  module action {
+    @verbatim (language="comment", text=
+      " Goal" "\n"
+      "int32 pan_deg           # si viene vacío, usa por defecto self.ptu_angles" "\n"
+      "int32 tilt_deg")
+    struct PtuSweep_Goal {
+      @verbatim (language="comment", text=
+        "si viene vacío, usa por defecto self.ptu_angles")
+      radar_msg::msg::Ptu target_ptu;
+    };
+    @verbatim (language="comment", text=
+      "Result")
+    struct PtuSweep_Result {
+      boolean success;
+
+      string message;
+    };
+    @verbatim (language="comment", text=
+      "Feedback")
+    struct PtuSweep_Feedback {
+      int32 current_pan_deg;
+
+      int32 current_tilt_deg;
+
+      string status;
+    };
+  };
+};
