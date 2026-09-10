@@ -1,4 +1,0 @@
-source;share/ptu_driver/local_setup.bash
-source;share/ptu_driver/local_setup.dsv
-source;share/ptu_driver/local_setup.sh
-source;share/ptu_driver/local_setup.zsh

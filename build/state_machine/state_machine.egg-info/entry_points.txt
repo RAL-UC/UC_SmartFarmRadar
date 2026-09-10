@@ -1,5 +1,0 @@
-[console_scripts]
-active_ptu_radar = state_machine.active_ptu_radar:main
-active_radar = state_machine.active_radar:main
-state_machine = state_machine.state_machine:main
-
