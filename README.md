@@ -1,20 +1,20 @@
 # UC SmartFarm Radar para ROS 2 Humble
 
-Este repositorio contiene paquetes de ROS 2 desarrollados para capturar datos de radar utilizando la plataforma de desarollo de arreglos en fase [**ADALM-PHASER CN0566** de Analog Devices](https://wiki-analog-com.translate.goog/resources/eval/user-guides/circuits-from-the-lab/cn0566?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc) en banda X y controlar un **PTU‑C46**, que permite posicionar dinámicamente el radar hacia distintas direcciones.
+Este repositorio contiene paquetes de ROS 2 desarrollados para capturar datos de radar en banda X utilizando la plataforma de desarollo de arreglos en fase [**ADALM-PHASER CN0566** de Analog Devices](https://wiki-analog-com.translate.goog/resources/eval/user-guides/circuits-from-the-lab/cn0566?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc) y controlar un posicionador **PTU‑C46** para ajustar dinámicamente el radar hacia distintas direcciones.
 
 ## 📦 Paquetes Incluidos
 
 | Paquete | Descripción |
 | :--- | :--- |
-| **`radar_msg`** | Definición de acciones y mensajes personalizados |
-| **`radar_package`** | Captura, procesamiento y publicación de datos del radar vía Ethernet. |
-| **`ptu_driver`** | Interfaz de comunicación serial RS-232 con el PTU-C46. |
-| **`ptu_package`** | Rutinas predefinidas para controlar la orientación y elevación del PTU-C46. |
+| **`radar_msg`** | Estructura estandarizada de acciones y mensajes personalizados |
+| **`radar_package`** | Captura, procesamiento y publicación de datos de radar vía Ethernet |
+| **`ptu_driver`** | Interfaz de comunicación serial RS-232 con el PTU-C46 |
+| **`ptu_package`** | Rutinas predefinidas para controlar la orientación y elevación del PTU-C46 |
 | **`state_machine`** | Máquina de estado para orquestar las acciones de los distintos dispotivos (Robot movil, radar, PTU) |
 
 ---
 
-## Requisitos e Instalación
+## 🛠️ Requisitos e Instalación
 
 ### Sistema Base
 - **S.O.:** Ubuntu 22.04 LTS
@@ -22,16 +22,9 @@ Este repositorio contiene paquetes de ROS 2 desarrollados para capturar datos d
 
 ### Dependencias del Sistema y Hardware
 
-**Librerias de Python requeridas:**
+Dependencias de compilación y librerías del PhaserX: [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio).
 
-- `pylibiio`
-- `pyadi-iio`
-- `pyserial`
-- `numpy`
-
-Para trabajar con el hardware PhaserX, es necesario instalar las siguientes dependencias de compilación y librerías [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio): 
-
-Se debe seguir el listado de instrucciones de configuración previa de [Build instructions for libiio](https://github.com/analogdevicesinc/libiio/blob/main/README_BUILD.md) hasta antes de clonar el repositorio:
+Debe seguir el listado de instrucciones de configuración previa de [Build instructions for libiio](https://github.com/analogdevicesinc/libiio/blob/main/README_BUILD.md) hasta antes de clonar el repositorio:
 
 ```bash
 sudo apt-get update
@@ -43,7 +36,7 @@ sudo apt-get install doxygen graphviz
 sudo apt-get install python3 python3-pip python3-setuptools
 ```
 
-Descarga el paquete libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb:
+Descarga el paquete libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb y ejecutalo:
 
 ```bash
 sudo apt install ./libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb
@@ -66,36 +59,26 @@ Desde la raíz del workspace (ej. /UC_SmartFarmRadar):
 colcon build
 source install/setup.bash
 ```
-
 ---
 
 ## 🚀 Guía de Ejecución
-### 1. PTU-C46
 
-> **Nota:** Para La conexión serial del dispositivo **PTU‑C46** se utiliza un conversor USB a RS-232 modelo TU-S9. 
+### 1. PhaserX
 
-* **Driver de Comunicación (`ptu_driver`):**
-
-```bash
-ros2 run ptu_driver ptu_node_driver --ros-args -p serial_port:=/dev/ttyUSB0
-```
-
-*Límites de movimiento:* Pan (horizontal) **-158° a +158°** | Tilt (vertical) **-46° a +31°**.
-
-Se permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el manual del dispositivo [manual del dispositivo](https://www.sustainable-robotics.com/reference/PTU/PTU-manual-D46-2.15.pdf)
+**Captura y Procesamiento (`radar_package`):**
+Un único archivo de lanzamiento centraliza la puesta en marcha del radar, la PTU, la visualización de mapas, el procesamiento de los datos y los simuladores de depuración
 
 ```bash
-ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
+ros2 launch radar_package launch.py
 ```
 
-### 2. PhaserX
-
-* **Mensajes Personalizados (`radar_msg`):**
-Permite estructurar la ejecución de acciones y la información entre dispositivos mediante una definición estandarizada. Incluye nodos ejecutables a modo de ejemplo.
+**Mensajes Personalizados (`radar_msg`):**
+Estructura y estandariza el intercambio de información y la ejecución de acciones entre dispositivos. Incluye nodos ejecutables a modo de ejemplo para depuración.
 
 ```bash
 ros2 interface show radar_msg/msg/RadarData
 ```
+
 Nodos de ejemplo:
 
 ```bash
@@ -103,21 +86,29 @@ ros2 run radar_msg publish_radar_data
 ros2 run radar_msg subscribe_radar_data
 ```
 
-* **Captura y Procesamiento (`radar_package`):**
-Un único archivo de lanzamiento centraliza la puesta en marcha del radar, la PTU, la visualización de mapas, el procesamiento de información y los simuladores de depuración
+### 2. PTU-C46
+
+> **Nota:** Para La conexión serial del dispositivo **PTU‑C46** se utiliza un conversor USB a RS-232 modelo TU-S9. 
+
+**Driver de Comunicación (`ptu_driver`):**
 
 ```bash
-ros2 launch radar_package launch.py
+ros2 run ptu_driver ptu_node_driver --ros-args -p serial_port:=/dev/ttyUSB0
 ```
 
+*Límites de movimiento:* Pan (horizontal) **-158° a +158°** | Tilt (vertical) **-46° a +31°**.
+
+Se permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el [manual del dispositivo](https://www.sustainable-robotics.com/reference/PTU/PTU-manual-D46-2.15.pdf)
+
 ```bash
-# Habilitar barrido (publicación única)
-ros2 topic pub --once /allow_sweep std_msgs/msg/Bool "{data: true}"
+ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
 ```
 
-* **Servicios Útiles:**
+**Rutina Automática (`ptu_package`):**
+Ejecuta una rutina predefinida en base a una señal habilitadora:
+
 ```bash
-ros2 service call /clear_map std_srvs/srv/Empty "{}"
+ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
 ```
 
 ## 📹 Grabación y Reproducción de Rosbags

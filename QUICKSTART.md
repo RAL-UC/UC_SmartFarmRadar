@@ -132,12 +132,13 @@ mientras tanto se ha controlador por medio del terminal serial `putty`
 nano ~/.bashrc
 
 
-* **Rutina Automática (`ptu_package`):**
-Ejecuta una rutina predefinida en base a una señal habilitadora:
 
 ```bash
-ros2 run ptu_package ptu_node
-ros2 topic pub --once /allow_routine_ptu std_msgs/msg/Bool "{data: true}"
-ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
-ros2 topic pub /start_scan std_msgs/msg/Bool "{data: true}"
+# Habilitar barrido (publicación única)
+ros2 topic pub --once /allow_sweep std_msgs/msg/Bool "{data: true}"
+```
+
+* **Servicios Útiles:**
+```bash
+ros2 service call /clear_map std_srvs/srv/Empty "{}"
 ```
