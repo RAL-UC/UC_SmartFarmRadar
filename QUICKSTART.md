@@ -124,3 +124,20 @@ ros2 run state_machine active_radar
 
 ros2 param list /radar_node
 ros2 param get /radar_node num_chirps
+
+
+### Pun-tilt
+mientras tanto se ha controlador por medio del terminal serial `putty`
+
+nano ~/.bashrc
+
+
+* **Rutina Automática (`ptu_package`):**
+Ejecuta una rutina predefinida en base a una señal habilitadora:
+
+```bash
+ros2 run ptu_package ptu_node
+ros2 topic pub --once /allow_routine_ptu std_msgs/msg/Bool "{data: true}"
+ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
+ros2 topic pub /start_scan std_msgs/msg/Bool "{data: true}"
+```
