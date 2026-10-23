@@ -1,0 +1,50 @@
+/**:
+  ros__parameters:
+    # ====================== CALIBRACIÓN PHASER ======================
+    # Se carga junto con radar.yaml (sdr_uri, phaser_uri, element_spacing_m)
+    # Procedimiento de Analog Devices:
+    # https://wiki.analog.com/resources/eval/user-guides/circuits-from-the-lab/cn0566/quickstart
+
+    # PASOS A EJECUTAR (siempre en este orden: hb100, channel, gain, phase)
+    # los pasos omitidos usan los archivos de una calibración anterior, si no existen se dejan sin corrección
+    cal_steps: ["hb100", "channel", "gain", "phase"]
+
+    # FUENTE DE SEÑAL
+    # "hb100": fuente HB100 frente al arreglo ~ 1.5m (procedimiento de Analog Devices)
+    # "tx": transmisor del propio phaser con una antena conectada a la salida TX
+    cal_signal_source: "hb100"
+    cal_default_signal_freq_hz: 10.525e9 # se usa sin medición de la HB100 o con fuente "tx"
+
+    # RECEPCIÓN DURANTE LA CALIBRACIÓN (onda continua, sin rampa)
+    cal_sample_rate_hz: 30.0e6 # el filtro LTE20_MHz.ftr la deja en 30.72 MSPS
+    # # Data Sample Frequency = 30720000.000000 Hz
+    #RX 3 GAIN -6 DEC 2 -> decima x2
+    #RRX 983040000 491520000 245760000 122880000 61440000 30720000 -> cadena de relojes de recepción, que va del PLL interno (983.04 MHz) hasta la tasa final de 30.72
+    #BWRX 19365514 # El ancho de banda analógico, de unos 19.4 MHz.
+    # banda útil plana y amplia para ubicar el tono de calibración
+    # calculos realizados por medio de asistente de MATLAB para diseño de filtros FIR
+
+
+
+    cal_rx_lo_hz: 2.2e9 # oscilador local del PlutoSDR
+    cal_tone_offset_hz: 1.0e6 # tono de la HB100 fuera de DC (fuga del LO del PlutoSDR), entre 0.6 y 8.5 MHz
+    cal_buffer_size: 1024 # búferes pequeños: barridos más rápidos
+    cal_tx_gain_db: -6 # solo con fuente "tx", valor entre 0 y -88
+    cal_averages: 4 # promedios por medición
+    cal_min_signal_contrast_db: 15.0 # caída mínima del tono al apagar todos los elementos (confirma que la señal entra por el arreglo)
+
+    # BÚSQUEDA DE LA HB100 (paso hb100)
+    hb100_sweep_start_hz: 10.0e9
+    hb100_sweep_stop_hz: 10.7e9
+    hb100_sweep_step_hz: 5.0e6 # máximo 9 MHz: las bandas vecinas cubren la zona de DC de cada banda
+    hb100_min_snr_db: 15.0 # nivel mínimo del máximo sobre la mediana del espectro
+
+    # RESULTADOS
+    # "" = carpeta resource/ del código fuente de radar_package (luego: colcon build)
+    cal_output_dir: ""
+    cal_save_plots: true # gráficos PNG en <cal_output_dir>/calibracion_graficos
+    cal_start_delay_s: 10.0 # espera para ubicar la fuente cuando no hay terminal interactiva (ros2 launch)
+
+    # CONEXIÓN
+    connect_retries: 3
+    retry_interval_s: 5.0

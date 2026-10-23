@@ -7,8 +7,6 @@
     <maintainer email="dammr@uc.cl">Diego Muñoz Rojas</maintainer>
   <license>MIT License</license>
 
-  <buildtool_depend>ament_python</buildtool_depend>
-  
   <exec_depend>rclpy</exec_depend>
   <exec_depend>radar_msg</exec_depend>
   <exec_depend>ral_bunker_msgs</exec_depend>

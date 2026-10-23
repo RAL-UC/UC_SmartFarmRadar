@@ -119,8 +119,8 @@ class PtuRoutineNode(Node):
         pan_deg  = int(goal_handle.request.target_ptu.pan_deg)
         tilt_deg = int(goal_handle.request.target_ptu.tilt_deg)
 
-        pan_deg = goal_handle.request.pan_deg
-        tilt_deg = goal_handle.request.tilt_deg
+        #pan_deg = goal_handle.request.pan_deg
+        #tilt_deg = goal_handle.request.tilt_deg
 
         self.target_pan_steps  = grados_a_pasos(pan_deg)
         self.target_tilt_steps = grados_a_pasos(tilt_deg)

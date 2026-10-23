@@ -1,4 +1,4 @@
-/**: # mismo nombre del nodo
+/**: # debe ser el mismo nombre del nodo
   ros__parameters:
     # ====================== GPS ======================
     # CONECTIVIDAD / RED
@@ -20,6 +20,8 @@
 
     # ADQUISICIÓN 
     sample_rate_hz: 0.6e6 # frecuencia de muestreo 600 kHz
+    rx_rf_bandwidth_hz: 18.0e6 # filtro analógico antialias de Rx, esquina en banda base = 9 MHz (valor por defecto del Pluto)
+    tx_rf_bandwidth_hz: 18.0e6 # filtro analógico de Tx que elimina las imágenes del DAC, esquina = 9 MHz
 
     # FRECUENCIAS DE SEÑALES DE TRABAJO
     center_freq_hz: 2.2e9           # 2.2 GHz frecuencia de operacion PlutoSDR
@@ -41,7 +43,7 @@
     rx_gain_chan0: 70 # rango [-3, 70]
     rx_gain_chan1: 70 # rango [-3, 70]
     tx_gain_chan0: -88 # ganancia en la transmision valor entre 0 y -88 CANAL 0 -> Tx1
-    tx_gain_chan1: 0 # ganancia en la transmision valor entre 0 y -88 CANAL 0 -> Tx2
+    tx_gain_chan1: 0 # ganancia en la transmision valor entre 0 y -88 CANAL 1 -> Tx2
 
     # OFFSET DE DISTANCIA
     # podria reajustarse segun el calculo y aproximacion dada a los bins
@@ -56,8 +58,8 @@
     pri_ms: 1.5                     # 500 µs + 1 ms d-> duración chirp + margen
     num_chirps: 1                   # chirridos por cuadro (uso con potencias de 2)
     percent_ignore_samples: 0.1     # se ignora el 10% de la cantidad de muestras
-    begin_offset_time_s: 0.000025    # 5% o 10% de 500 µs omitidos para el comienzo de la consideracion de datos para evitar no linealidades, transitorio o desfase
-    good_ramp_samples: 270          # cantidad de muestras útiles -> int((RAMP_TIME_S-BEGIN_OFFSET_TIME) * SAMPLE_RATE)
+    begin_offset_time_s: 0.00005    # 10% de 500 µs (30 muestras) omitidos para el comienzo de la consideracion de datos para evitar no linealidades, transitorio o desfase
+    good_ramp_samples: 270          # cantidad de muestras útiles -> int((RAMP_TIME_S-BEGIN_OFFSET_TIME) * SAMPLE_RATE) = (500 µs - 50 µs) * 600 kHz; si se cambia begin_offset_time_s, recalcular
 
     # BEAM RADAR
     # considerar patron de transmision de antena transmisora, diagrama polar con 24° de apertura caida a -3db

@@ -26,21 +26,21 @@ class PtuRadarScan(Node):
         super().__init__('ptu_radar_scan')
 
         # ----------------- Parámetros -----------------
-        self.declare_parameter('angle_min', ANGLE_MIN_PTU_PAN)
-        self.declare_parameter('angle_max', ANGLE_MAX_PTU_PAN)
-        self.declare_parameter('angle_step', ANGLE_STEP_PTU_PAN)
-        self.declare_parameter('wait_timeout_server_s', WAIT_TIMEOUT_SERVER)
+        # parámetros configurables desde línea de comandos o archivo de configuracion
+        self.declare_parameter('angle_min', -90)
+        self.declare_parameter('angle_max', 90)
+        self.declare_parameter('angle_step', 15)
+        self.declare_parameter('wait_timeout_server_s', 30)
         self.declare_parameter('trigger_topic', 'start_scan')
         self.declare_parameter('publish_topic', 'radar_data')
 
-        p = self.get_parameter
-        self.angle_min_ptu_pan = int(p('angle_min').value)
-        self.angle_max_ptu_pan = int(p('angle_max').value)
-        self.angle_step_ptu_pan = int(p('angle_step').value)
-        self.wait_timeout = float(p('wait_timeout_server_s').value)
-
-        self.trigger_topic = str(p('trigger_topic').value)
-        self.publish_topic = str(p('publish_topic').value)
+        # carga de valores
+        self.angle_min_ptu_pan = int(self.get_parameter('angle_min').value)
+        self.angle_max_ptu_pan = int(self.get_parameter('angle_max').value)
+        self.angle_step_ptu_pan = int(self.get_parameter('angle_step').value)
+        self.wait_timeout = float(self.get_parameter('wait_timeout_server_s').value)
+        self.trigger_topic = str(self.get_parameter('trigger_topic').value)
+        self.publish_topic = str(self.get_parameter('publish_topic').value)
 
         # ----------------- Vector de ángulos -----------------
         #self.pan_list = list(range(self.angle_min_ptu_pan, self.angle_max_ptu_pan + 1, self.angle_step_ptu_pan))
@@ -188,8 +188,8 @@ class PtuRadarScan(Node):
                     # 2) Radar
                     self.get_logger().info(f"{tag} Radar beamform pan={pan}°, tilt={tilt}°")
                     rb_goal = RadarBeamform.Goal()
-                    rb_goal.pan_deg = int(pan)
-                    rb_goal.tilt_deg = int(tilt)
+                    #rb_goal.pan_deg = int(pan)
+                    #rb_goal.tilt_deg = int(tilt)
                     ok, rb_res, err = self._send_goal_wait_result(self.radar_client, rb_goal, 'radar_beamform')
                     # fallo: falso, falso
                     if not ok or (hasattr(rb_res, 'success') and not rb_res.success):
