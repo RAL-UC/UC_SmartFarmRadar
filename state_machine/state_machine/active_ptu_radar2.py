@@ -129,13 +129,13 @@ class PtuRadarScan(Node):
             f"PTU OK (pan={pan}°, tilt={tilt}°) → Radar Beamform"
         )
 
-        self.start_beamforming(pan, tilt)
+        self.start_beamforming()
 
     # RADAR
-    def start_beamforming(self, pan, tilt):
+    def start_beamforming(self):
         goal = RadarBeamform.Goal()
-        goal.pan_deg = int(pan)
-        goal.tilt_deg = int(tilt)
+        #goal.pan_deg = int(pan)
+        #goal.tilt_deg = int(tilt)
 
         self.radar_client.wait_for_server()
         future = self.radar_client.send_goal_async(goal)

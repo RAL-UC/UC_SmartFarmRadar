@@ -66,10 +66,23 @@ source install/setup.bash
 ### 1. PhaserX
 
 **Captura y Procesamiento (`radar_package`):**
-Un único archivo de lanzamiento centraliza la puesta en marcha del radar, la PTU, la visualización de mapas, el procesamiento de los datos y los simuladores de depuración
+Un único archivo de lanzamiento centraliza la puesta en marcha del radar, la PTU, la visualización de mapas, el procesamiento de los datos y los simuladores de depuración.
 
 ```bash
 ros2 launch radar_package launch.py
+```
+
+**Calibración inicial (`radar_package`):**
+Se ejecuta solo cuando es necesario (phaser nuevo, cambio de montaje o de cables) y nunca junto con `launch.py`, porque ambos usan el mismo hardware. Sigue el [procedimiento de Analog Devices](https://wiki.analog.com/resources/eval/user-guides/circuits-from-the-lab/cn0566/quickstart): la fuente HB100 encendida frente al arreglo, en el eje mecánico y a ~1.5 m.
+
+```bash
+ros2 launch radar_package calibracion.launch.py
+```
+
+Los pasos y parámetros están en `config/calibracion.yaml`. El nodo mide la frecuencia de la HB100 y la calibración entre canales, de ganancia y de fase, y guarda `hb100_freq_val.pkl`, `channel_cal_val.pkl`, `gain_cal_val.pkl` y `phase_cal_val.pkl` en `radar_package/resource/`, con gráficos de control en `resource/calibracion_graficos/`. Para que `radar_node` use la nueva calibración hay que recompilar:
+
+```bash
+colcon build --packages-select radar_package
 ```
 
 **Mensajes Personalizados (`radar_msg`):**
@@ -93,6 +106,7 @@ ros2 run radar_msg subscribe_radar_data
 **Driver de Comunicación (`ptu_driver`):**
 
 ```bash
+# Lanzar el driver (el baudrate está fijo en 9600 dentro del driver)
 ros2 run ptu_driver ptu_node_driver --ros-args -p serial_port:=/dev/ttyUSB0
 ```
 
@@ -101,15 +115,29 @@ ros2 run ptu_driver ptu_node_driver --ros-args -p serial_port:=/dev/ttyUSB0
 Se permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el [manual del dispositivo](https://www.sustainable-robotics.com/reference/PTU/PTU-manual-D46-2.15.pdf)
 
 ```bash
+# Enviar un comando directo al PTU
 ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
 ```
 
-**Rutina Automática (`ptu_package`):**
-Ejecuta una rutina predefinida en base a una señal habilitadora:
+**Servidor de movimiento (`ptu_package`):**
+El nodo `ptu_node` ofrece la acción `ptu_sweep`, que mueve el PTU a un ángulo de pan/tilt objetivo. La utilizan los nodos de `state_machine`.
 
 ```bash
+ros2 run ptu_package ptu_node
+```
+
+### 3. Rutina de escaneo PTU + radar (`state_machine`)
+
+El nodo `active_ptu_radar` espera una señal habilitadora en `/start_scan`. Al recibir `True` recorre los ángulos de pan definidos en el nodo y, en cada uno, mueve el PTU (acción `ptu_sweep`) y captura con el radar (acción `radar_beamform` de `radar_node`), publicando el resultado en `/radar_data`. Mientras hay un escaneo en curso ignora nuevos triggers.
+
+```bash
+# Nodo que espera el trigger
+ros2 run state_machine active_ptu_radar
+# Iniciar un escaneo
 ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
 ```
+
+> **Nota:** actualmente `active_ptu_radar` falla al arrancar (`NameError`): usa `ANGLE_MIN_PTU_PAN` y `WAIT_TIMEOUT_SERVER`, cuyo import desde `radar_package.parametros` está comentado.
 
 ## 📹 Grabación y Reproducción de Rosbags
 
@@ -141,7 +169,7 @@ Para garantizar la comunicación Ethernet con el PhaserX:
 
 
 ### Carga Automática de Entorno (`~/.bashrc`)
-Para evitar ejecutar `source` manualmente en cada terminal, añade las siguientes líneas a tu archivo `~/.bashrc`:
+Para evitar ejecutar `source` manualmente en cada terminal modifica las variables de entorno añadiendo las siguientes líneas a tu archivo `~/.bashrc` con `nano ~/.bashrc`:
 
 ```bash
 # cargar entorno base de ROS 2 Humble
@@ -161,4 +189,6 @@ fi
 Para más información leer también [QUICKSTART](./QUICKSTART.md)
 
 
+## Repositorio Github asociado
 
+- `https://github.com/RAL-UC/ral_bunker`

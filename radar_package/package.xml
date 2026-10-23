@@ -7,13 +7,15 @@
   <maintainer email="dammr@uc.cl">Diego Muñoz Rojas</maintainer>
   <license>MIT License</license>
 
-   <buildtool_depend>ament_python</buildtool_depend>
-
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>radar_msg</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
-  <exec_depend>action_msgs</exec_depend> 
+  <exec_depend>action_msgs</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-scipy</exec_depend> <!-- calibracion -->
+  <exec_depend>python3-matplotlib</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

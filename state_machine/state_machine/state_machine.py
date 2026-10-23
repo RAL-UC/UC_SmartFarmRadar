@@ -144,14 +144,14 @@ class StateMachine(Node):
         
         # Al terminar el PTU en ese ángulo -> BEAMFORM de ese mismo ángulo
         self.get_logger().info(f"PTU OK (pan={pan}°, tilt={tilt}°) -> Radar Beamform")
-        self.start_beamforming(pan, tilt)
+        self.start_beamforming()
 
     ############## RADAR ###############
-    def start_beamforming(self, pan_deg: int, tilt_deg: int):
+    def start_beamforming(self):
         self.radar_client.wait_for_server()
         goal_bf = RadarBeamform.Goal()
-        goal_bf.pan_deg  = int(pan_deg)
-        goal_bf.tilt_deg = int(tilt_deg)
+        #goal_bf.pan_deg  = int(pan_deg)
+        #goal_bf.tilt_deg = int(tilt_deg)
 
         fut = self.radar_client.send_goal_async(goal_bf, feedback_callback=self.radar_feedback_cb)
         fut.add_done_callback(self.radar_goal_response_cb)

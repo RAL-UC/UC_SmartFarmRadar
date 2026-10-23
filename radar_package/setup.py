@@ -16,7 +16,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'resource'), glob('resource/*.pkl') + glob('resource/*.npy')),
+        (os.path.join('share', package_name, 'resource'), glob('resource/*.pkl') + glob('resource/*.npy') + glob('resource/*.ftr')),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
@@ -26,6 +26,8 @@ setup(
         'std_msgs',
         'radar_msg',
         'numpy',
+        'scipy',
+        'matplotlib',
         'adi',
     ],
     zip_safe=True,
@@ -42,6 +44,7 @@ setup(
             # ejecucion
             'radar_node = radar_package.nodes.radar_node:main',
             'medicion_fondo = radar_package.utils.medicion_fondo:main',
+            'calibracion = radar_package.calibracion.calibracion_node:main',
             'radar_visualizer = radar_package.visualization.radar_visualizer:main',
             'radar_polar_visualizer = radar_package.visualization.radar_polar_visualizer:main',
             'data_processing = radar_package.processing.data_processing:main',

@@ -20,21 +20,21 @@ def generate_launch_description():
             parameters=[radar_params], # parametros admitidos en la ejecucion
             output='screen', # salida en la terminal
         ),
-        #Node(
-        #    package='ptu_driver',
-        #    executable='ptu_node_driver', 
-        #    name='ptu_node_driver',
-        #    parameters=[{
-        #        'serial_port': '/dev/ttyUSB0' # para pc de rover debe estar en ttyUSB1, pc host ttyUSB0 -> identificado de forma manual
-        #    }],
-        #    output='screen',
-        #),
-        #Node(
-        #    package='ptu_package',
-        #    executable='ptu_node',
-        #    name='ptu_node',
-        #    output='screen'
-        #),
+        Node(
+            package='ptu_driver',
+            executable='ptu_node_driver', 
+            name='ptu_node_driver',
+            parameters=[{
+                'serial_port': '/dev/ttyUSB0' # para pc de rover debe estar en ttyUSB1, pc host ttyUSB0 -> identificado de forma manual
+            }],
+            output='screen',
+        ),
+        Node(
+            package='ptu_package',
+            executable='ptu_node',
+            name='ptu_node',
+            output='screen'
+        ),
         # ------------------------------------------------------------
         # ----------------- visualizer -----------------------
         #Node(
