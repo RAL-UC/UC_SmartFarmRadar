@@ -17,16 +17,19 @@
 
     # RECEPCIÓN DURANTE LA CALIBRACIÓN (onda continua, sin rampa)
     cal_sample_rate_hz: 30.0e6 # el filtro LTE20_MHz.ftr la deja en 30.72 MSPS
-    # # Data Sample Frequency = 30720000.000000 Hz
-    #RX 3 GAIN -6 DEC 2 -> decima x2
-    #RRX 983040000 491520000 245760000 122880000 61440000 30720000 -> cadena de relojes de recepción, que va del PLL interno (983.04 MHz) hasta la tasa final de 30.72
-    #BWRX 19365514 # El ancho de banda analógico, de unos 19.4 MHz.
+    # Data Sample Frequency = 30720000.000000 Hz
+    # RX 3 GAIN -6 DEC 2 -> decima x2
+    # RRX 983040000 491520000 245760000 122880000 61440000 30720000 -> cadena de relojes de recepción, que va del PLL interno (983.04 MHz) hasta la tasa final de 30.72 MHz
+    # BWRX 19365514 # El ancho de banda analógico, de unos 19.4 MHz.
     # banda útil plana y amplia para ubicar el tono de calibración
-    # calculos realizados por medio de asistente de MATLAB para diseño de filtros FIR
+    # calculos realizados por medio de asistente de MATLAB para diseño de filtros
+    # las 128 filas de coeficientes y las líneas TX, RX, RTX y RRX definen el filtro digital FIR: un cálculo que el AD9363 aplica a las muestras ya digitalizadas para fijar con precisión la banda útil y decimar ×2
+    # las líneas BWTX y BWRX fijan el ancho de banda de los filtros analógicos, de ≈ 19.37 MHz: en Rx evitan el aliasing antes de digitalizar y en Tx eliminan las imágenes del DAC
 
-
-
-    cal_rx_lo_hz: 2.2e9 # oscilador local del PlutoSDR
+    # oscilador local del PlutoSDR: el mismo valor que center_freq_hz (radar.yaml), porque el desbalance entre canales
+    # y la fase entre subarreglos dependen de la IF (CF-01). Con 1.4 GHz, el barrido de la HB100 pide un LO de
+    # 11.4–12.1 GHz, dentro del rango del VCO (con 2.2 GHz llegaba a 12.9 GHz)
+    cal_rx_lo_hz: 1.4e9 # antes 2.2e9
     cal_tone_offset_hz: 1.0e6 # tono de la HB100 fuera de DC (fuga del LO del PlutoSDR), entre 0.6 y 8.5 MHz
     cal_buffer_size: 1024 # búferes pequeños: barridos más rápidos
     cal_tx_gain_db: -6 # solo con fuente "tx", valor entre 0 y -88

@@ -41,7 +41,7 @@ class RadarNode(Node):
         self.declare_parameter('sample_rate_hz', 0.6e6)
         self.declare_parameter('rx_rf_bandwidth_hz', 18e6)
         self.declare_parameter('tx_rf_bandwidth_hz', 18e6)
-        self.declare_parameter('center_frequency_hz', 2.2e9)
+        self.declare_parameter('center_freq_hz', 1.4e9)
         self.declare_parameter('signal_freq_hz', 100e3)
         self.declare_parameter('output_freq_hz', 10e9)
         self.declare_parameter('bandwidth_hz', 500e6)
@@ -69,7 +69,7 @@ class RadarNode(Node):
         self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
         self.rx_rf_bandwidth_hz = self.get_parameter('rx_rf_bandwidth_hz').value
         self.tx_rf_bandwidth_hz = self.get_parameter('tx_rf_bandwidth_hz').value
-        self.center_frequency_hz = self.get_parameter('center_frequency_hz').value
+        self.center_freq_hz = self.get_parameter('center_freq_hz').value
         self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
         self.output_freq_hz = self.get_parameter('output_freq_hz').value
         self.bandwidth_hz = self.get_parameter('bandwidth_hz').value
@@ -180,7 +180,7 @@ class RadarNode(Node):
         sdr.rx_rf_bandwidth = int(self.rx_rf_bandwidth_hz)
         sdr.tx_rf_bandwidth = int(self.tx_rf_bandwidth_hz)
         self.get_logger().info(f"Filtro analógico: Rx {sdr.rx_rf_bandwidth} Hz, Tx {sdr.tx_rf_bandwidth} Hz")
-        sdr.rx_lo = int(self.center_frequency_hz) # Configura el oscilador local (LO) en la frecuencia central 2.2 GHz
+        sdr.rx_lo = int(self.center_freq_hz) # Configura el oscilador local (LO) en la frecuencia central (IF) de 1.4 GHz
         sdr.rx_enabled_channels = [0, 1] # Habilita los canales de recepción: Canal 0 (Rx1 / voltage0) - Canal 1 (Rx2 / voltage1)
         sdr._rxadc.set_kernel_buffers_count(1) # sin bloques viejos en la cola
         sdr.gain_control_mode_chan0 = "manual" # manual o slow_attack (automatico segun señal de recepcion)
@@ -192,7 +192,7 @@ class RadarNode(Node):
         sdr.rx_hardwaregain_chan1 = int(self.rx_gain_chan1) + ccal[1] - max(ccal) # valor entre -3 y 70
 
         # Configuración del transmisor Tx del SDR
-        sdr.tx_lo = int(self.center_frequency_hz) # Configura el oscilador local (LO) para transmisión en la misma frecuencia central
+        sdr.tx_lo = int(self.center_freq_hz) # Configura el oscilador local (LO) para transmisión en la misma frecuencia central
         #sdr.tx_enabled_channels = [0, 1] # Habilita los canales de transmision: Canal 0 Tx1 - Canal 1 Tx2
         sdr.tx_enabled_channels = [1] # anular por completo la salida TX1, dejar solo TX2
         sdr.tx_cyclic_buffer = True # buffer ciclico para modo rafaga TDD burst, de lo contrario hay comportamiento aleatorio
@@ -202,7 +202,15 @@ class RadarNode(Node):
         # Configuración del PLL ADF4159 (Phase-Locked Loop) en el phaser como rampa
         # PLL tiene retroalimentacion con valor /4
 
-        phaser.frequency = int(self.output_freq_hz + sdr.rx_lo + self.signal_freq_hz) // 4 # 10GHz + 100kHz + 2.2GHz
+        # IF del PlutoSDR (center_freq_hz) de 1.4 GHz en vez de 2.2 GHz
+        # LO = RF + IF: con la RF en 10.0–10.5 GHz, el LO barre 11.4001–11.9001 GHz (antes 12.2001–12.7001 GHz)
+        # ventaja: el LO queda dentro del rango garantizado del VCO HMC735 (10.5–12.2 GHz); con 2.2 GHz la rampa necesitaba
+        # ≈ 13.5 V de VTUNE (sobre los 13 V especificados) y con temperatura alta podía perder el enganche al final del chirp
+        # desventaja: la fuga del LO por el mezclador de TX (11.4–11.9 GHz) queda más cerca de la banda útil y los filtros la
+        # atenúan menos; es una emisión fuera de banda y no genera blancos falsos (al mezclarse en Rx vuelve cerca de DC)
+        # revisar interferencia con la banda del GPS
+        # 1.4 GHz queda entre las bandas del GPS del robot movil (L5/E5/L2 ≈ 1.16–1.25 GHz y L1/E1 ≈ 1.56–1.61 GHz)
+        phaser.frequency = int(self.output_freq_hz + sdr.rx_lo + self.signal_freq_hz) // 4 # 10 GHz + 1.4 GHz + 100 kHz -> LO de 11.4001 GHz
         phaser.freq_dev_range = int(self.bandwidth_hz / 4) # desviación de frecuencia total de la rampa de frecuencia completa en 500 MHz
         phaser.freq_dev_step = int((self.bandwidth_hz/4) / self.num_steps) # desviacion en cada paso 500 steps
         phaser.freq_dev_time = int(self.ramp_time_us) # tiempo total de la rampa de frecuencia completa en 500 us (1step/us)

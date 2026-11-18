@@ -24,7 +24,19 @@
     tx_rf_bandwidth_hz: 18.0e6 # filtro analógico de Tx que elimina las imágenes del DAC, esquina = 9 MHz
 
     # FRECUENCIAS DE SEÑALES DE TRABAJO
-    center_freq_hz: 2.2e9           # 2.2 GHz frecuencia de operacion PlutoSDR
+    # frecuencia intermedia (IF) del PlutoSDR 1.4 GHz en vez de 2.2 GHz
+    # LO del CN0566 = output_freq_hz + center_freq_hz + signal_freq_hz, así que la RF sigue en 10.0–10.5 GHz
+    # y el LO barre 11.4001–11.9001 GHz (antes 12.2001–12.7001 GHz)
+    # ventajas:
+    #   - el LO queda dentro del rango garantizado del VCO HMC735 (10.5–12.2 GHz); con 2.2 GHz la rampa necesitaba
+    #     ≈ 13.5 V de VTUNE (sobre los 13 V especificados) y con temperatura alta podía perder el enganche al final del chirp
+    #   - 1.4 GHz queda entre las bandas del GPS del robot movil (L5/E5/L2 ≈ 1.16–1.25 GHz y L1/E1 ≈ 1.56–1.61 GHz)
+    #   - los baluns de IF (TC1-1-13M+, 4.5–3000 MHz) pierden algo menos que cerca de su borde superior
+    # desventajas:
+    #   - la fuga del LO por el mezclador de TX (11.4–11.9 GHz) cae dentro de la banda de paso del filtro BFCN-1052+
+    #     y más cerca del corte del LFCW-1062+: se atenua menos, pero aún continua fuera de banda (no genera blancos falsos)
+    #   - hay que calibrar con la misma IF: usar el mismo valor en cal_rx_lo_hz (calibracion.yaml)
+    center_freq_hz: 1.4e9           # 1.4 GHz frecuencia de operacion PlutoSDR (antes 2.2e9)
     signal_freq_hz: 100e3           # 100 kHz señal transmitida
     output_freq_hz: 10e9            # 10 GHz salida radiofrecuencia
     bandwidth_hz: 500e6             # 500 MHz ancho de banda del chirp

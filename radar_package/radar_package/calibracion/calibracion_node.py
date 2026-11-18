@@ -87,7 +87,7 @@ class CalibracionNode(Node):
         self.declare_parameter('cal_signal_source', 'hb100')
         self.declare_parameter('cal_default_signal_freq_hz', 10.525e9)
         self.declare_parameter('cal_sample_rate_hz', 30.0e6)
-        self.declare_parameter('cal_rx_lo_hz', 2.2e9)
+        self.declare_parameter('cal_rx_lo_hz', 1.4e9) # misma IF que center_freq_hz de radar.yaml (CF-01)
         self.declare_parameter('cal_tone_offset_hz', 1.0e6)
         self.declare_parameter('cal_buffer_size', 1024)
         self.declare_parameter('cal_tx_gain_db', -6)

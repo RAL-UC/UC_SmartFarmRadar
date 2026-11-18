@@ -26,7 +26,7 @@ class RadarVisualizer(Node):
         # radar.yaml
         self.declare_parameter('element_spacing_m', 0.014)
         self.declare_parameter('sample_rate_hz', 0.6e6)
-        self.declare_parameter('center_frequency_hz', 2.2e9)
+        self.declare_parameter('center_freq_hz', 1.4e9)
         self.declare_parameter('signal_freq_hz', 100e3)
         self.declare_parameter('slope_hz_per_s', 1.0e12)
         self.declare_parameter('range_offset_hz', 10760.0)
@@ -47,7 +47,7 @@ class RadarVisualizer(Node):
         # radar.yaml
         self.element_spacing_m = self.get_parameter('element_spacing_m').value
         self.sample_rate_hz = self.get_parameter('sample_rate_hz').value
-        self.center_frequency_hz = self.get_parameter('center_frequency_hz').value
+        self.center_freq_hz = self.get_parameter('center_freq_hz').value
         self.signal_freq_hz = self.get_parameter('signal_freq_hz').value
         self.slope_hz_per_s = self.get_parameter('slope_hz_per_s').value
         self.range_offset_hz = self.get_parameter('range_offset_hz').value
