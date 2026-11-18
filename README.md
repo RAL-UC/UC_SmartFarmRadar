@@ -1,32 +1,31 @@
-# UC SmartFarm Radar para ROS2 Humble
+# UC SmartFarm Radar para ROS 2 Humble
 
-Este repositorio contiene tres paquetes ROS 2 desarrollados para capturar datos de radar utilizando la plataforma de desarollo de arreglos en fase [**ADALM-PHASER CN0566** de Analog Devices](https://wiki-analog-com.translate.goog/resources/eval/user-guides/circuits-from-the-lab/cn0566?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc) y controlar un **PTU‑C46**, que permite posicionar dinámicamente el radar en distintas direcciones:
+Este repositorio contiene paquetes de ROS 2 desarrollados para capturar datos de radar en banda X utilizando la plataforma de desarollo de arreglos en fase [**ADALM-PHASER CN0566** de Analog Devices](https://wiki-analog-com.translate.goog/resources/eval/user-guides/circuits-from-the-lab/cn0566?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc) y controlar un posicionador **PTU‑C46** para ajustar dinámicamente el radar hacia distintas direcciones.
 
-### Paquetes incluidos
-- **radar_msg**: Definición del mensaje personalizado `RadarData`.
-- **radar_package**: Captura, procesamiento y publicación de datos obtenidos desde el radar por medio de conección ethernet.
-- **ptu_package**: Interfaz de comunicación serial con el PTU-C46.
-- **ptu_routine**: Produce una rutina para controlar orientación y elevación del PTU‑C46.
+## 📦 Paquetes Incluidos
+
+| Paquete | Descripción |
+| :--- | :--- |
+| **`radar_msg`** | Estructura estandarizada de acciones y mensajes personalizados |
+| **`radar_package`** | Captura, procesamiento y publicación de datos de radar vía Ethernet |
+| **`ptu_driver`** | Interfaz de comunicación serial RS-232 con el PTU-C46 |
+| **`ptu_package`** | Rutinas predefinidas para controlar la orientación y elevación del PTU-C46 |
+| **`state_machine`** | Máquina de estado para orquestar las acciones de los distintos dispotivos (Robot movil, radar, PTU) |
 
 ---
 
-## Requisitos
+## 🛠️ Requisitos e Instalación
 
-### Sistema operativo
-- Ubuntu 22.04
-- ROS 2 Humble Hawksbill
+### Sistema Base
+- **S.O.:** Ubuntu 22.04 LTS
+- **ROS 2:** Humble Hawksbill
 
-### Dependencias del sistema
+### Dependencias del Sistema y Hardware
 
-Para trabajar con el hardware de radar PhaserX, es necesario instalar las siguientes bibliotecas [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio): 
+Dependencias de compilación y librerías del PhaserX: [Instrucciones detalladas desde Analog Devices](https://wiki.analog.com/resources/tools-software/linux-software/pyadi-iio).
 
-Paquetes de Python requeridos:
-- `pylibiio`
-- `pyadi-iio`
-- `pyserial`
-- `numpy`
+Debe seguir el listado de instrucciones de configuración previa de [Build instructions for libiio](https://github.com/analogdevicesinc/libiio/blob/main/README_BUILD.md) hasta antes de clonar el repositorio:
 
-Para su instalación se debe seguir el listado de instrucciones de configuración previa de [Build instructions for libiio](https://github.com/analogdevicesinc/libiio/blob/main/README_BUILD.md) hasta antes de clonar el repositorio:
 ```bash
 sudo apt-get update
 sudo apt-get install build-essential
@@ -37,12 +36,14 @@ sudo apt-get install doxygen graphviz
 sudo apt-get install python3 python3-pip python3-setuptools
 ```
 
-Luego descargar libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb:
+Descarga el paquete libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb y ejecutalo:
+
 ```bash
 sudo apt install ./libiio-0.26.ga0eca0d-Linux-Ubuntu-22.04.deb
 ```
 
-Por último continuar con:
+Por último instala las dependecias de python:
+
 ```bash
 pip install pylibiio
 pip install pyadi-iio
@@ -52,66 +53,45 @@ pip install numpy
 
 ### Construcción del workspace
 
-Desde la raíz del workspace:
+Desde la raíz del workspace (ej. /UC_SmartFarmRadar):
 
 ```bash
 colcon build
 source install/setup.bash
 ```
-
 ---
 
-## Ejecución
-### PTU-C46
-#### Paquete `ptu_package`
-Para establecer la conexión serial del dispositivo **PTU‑C46** se utiliza un conversor USB a RS-232 modelo TU-S9. 
+## 🚀 Guía de Ejecución
 
-Ejecuta el nodo de comunicación:
+### 1. PhaserX
 
-```bash
-ros2 run ptu_package ptu_node --ros-args -p serial_port:=/dev/ttyUSB0
-```
-
-Para publicar ángulos, los límites por defecto son:
-- Pan (orientación horizontal): de **-158° a +158°**
-- Tilt (elevación): de **-46° a +31°**
-
-Se permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el manual del dispositivo [manual del dispositivo](https://www.sustainable-robotics.com/reference/PTU/PTU-manual-D46-2.15.pdf)
-```bash
-ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
-```
-#### Paquete `ptu_routine`
-Ejecuta una rutina predefinida que en base a una señal habilitadora permite realizar el recorrido:
+**Captura y Procesamiento (`radar_package`):**
+Un único archivo de lanzamiento centraliza la puesta en marcha del radar, la PTU, la visualización de mapas, el procesamiento de los datos y los simuladores de depuración.
 
 ```bash
-ros2 run ptu_routine ptu_routine_node
-ros2 topic pub --once /allow_routine_ptu std_msgs/msg/Bool "{data: true}"
-ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
-ros2 topic pub /start_scan std_msgs/msg/Bool "{data: true}"
+ros2 launch radar_package launch.py
 ```
 
-### Paquete `radar_package`
-Publica datos de radar desde un archivo .npy
+**Calibración inicial (`radar_package`):**
+Se ejecuta solo cuando es necesario (phaser nuevo, cambio de montaje o de cables) y nunca junto con `launch.py`, porque ambos usan el mismo hardware. Sigue el [procedimiento de Analog Devices](https://wiki.analog.com/resources/eval/user-guides/circuits-from-the-lab/cn0566/quickstart): la fuente HB100 encendida frente al arreglo, en el eje mecánico y a ~1.5 m.
+
 ```bash
-ros2 run radar_package radar_node
+ros2 launch radar_package calibracion.launch.py
 ```
 
-Suscribirse para visualizar los datos:
+Los pasos y parámetros están en `config/calibracion.yaml`. El nodo mide la frecuencia de la HB100 y la calibración entre canales, de ganancia y de fase, y guarda `hb100_freq_val.pkl`, `channel_cal_val.pkl`, `gain_cal_val.pkl` y `phase_cal_val.pkl` en `radar_package/resource/`, con gráficos de control en `resource/calibracion_graficos/`. Para que `radar_node` use la nueva calibración hay que recompilar:
+
 ```bash
-ros2 run radar_package process_data_node
+colcon build --packages-select radar_package
 ```
 
-Publicación de datos al topico solo una vez:
-```bash
-ros2 topic pub --once /allow_sweep std_msgs/msg/Bool "data: true"
-```
-
-### Paquete `radar_msg`
-Este paquete define el mensaje personalizado `RadarData` para estructurar la información del radar. Además, incluye nodos ejecutables a modo de ejemplo. La definición del mensaje puede visualizarse con el siguiente comando:
+**Mensajes Personalizados (`radar_msg`):**
+Estructura y estandariza el intercambio de información y la ejecución de acciones entre dispositivos. Incluye nodos ejecutables a modo de ejemplo para depuración.
 
 ```bash
 ros2 interface show radar_msg/msg/RadarData
 ```
+
 Nodos de ejemplo:
 
 ```bash
@@ -119,53 +99,96 @@ ros2 run radar_msg publish_radar_data
 ros2 run radar_msg subscribe_radar_data
 ```
 
-correr rosbag
+### 2. PTU-C46
+
+> **Nota:** Para La conexión serial del dispositivo **PTU‑C46** se utiliza un conversor USB a RS-232 modelo TU-S9. 
+
+**Driver de Comunicación (`ptu_driver`):**
 
 ```bash
-ros2 bag play UC_SmartFarmRadar/datos/radar_rosbag/intento1.7/intento1.7_0.db3
-```
-en bucle
-```bash
-ros2 bag play --loop UC_SmartFarmRadar/datos/radar_rosbag/intento1.7/intento1.7_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/data_sync_radar/data_sync_radar_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/dataset_0/dataset_0_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/wall/wall_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/wall/wall_0.db3
-
-ros2 bag play --loop UC_SmartFarmRadar/datos/ptu_radar_capture_routine/ptu_radar_capture_routine_0.db3
-ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_fondo_centro
-ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_fondo_cielo
-ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_experimental
-ros2 bag record -a -o /home/dammr/Desktop/magister_ws/UC_SmartFarmRadar/datos/medicion_experimental_taller
-
-ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo/medicion_fondo_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo_centro/medicion_fondo_centro_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_fondo_cielo/medicion_fondo_cielo_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental/medicion_experimental_0.db3
-ros2 bag play --loop UC_SmartFarmRadar/datos/medicion_experimental_taller/medicion_experimental_taller_0.db3
+# Lanzar el driver (el baudrate está fijo en 9600 dentro del driver)
+ros2 run ptu_driver ptu_node_driver --ros-args -p serial_port:=/dev/ttyUSB0
 ```
 
+*Límites de movimiento:* Pan (horizontal) **-158° a +158°** | Tilt (vertical) **-46° a +31°**.
+
+Se permite enviar cualquier comando al **PTU-C46**. Para más detalles, consulte el [manual del dispositivo](https://www.sustainable-robotics.com/reference/PTU/PTU-manual-D46-2.15.pdf)
+
 ```bash
-ros2 service call /clear_map std_srvs/src/empty "{}"
+# Enviar un comando directo al PTU
+ros2 topic pub --once /ptu_cmd std_msgs/msg/String "{data: 'pp-1000'}"
 ```
 
+**Servidor de movimiento (`ptu_package`):**
+El nodo `ptu_node` ofrece la acción `ptu_sweep`, que mueve el PTU a un ángulo de pan/tilt objetivo. La utilizan los nodos de `state_machine`.
 
-Para cargar el entorno de ros2 de forma automatica en tu computador y espacio de trabajo añade lo siguiente a tu archivo `~/.bashrc`
 ```bash
-source ~/ros2_humble/install/setup.bash
-source ~/Desktop/magister_ws/install/setup.bash
+ros2 run ptu_package ptu_node
+```
+
+### 3. Rutina de escaneo PTU + radar (`state_machine`)
+
+El nodo `active_ptu_radar` espera una señal habilitadora en `/start_scan`. Al recibir `True` recorre los ángulos de pan definidos en el nodo y, en cada uno, mueve el PTU (acción `ptu_sweep`) y captura con el radar (acción `radar_beamform` de `radar_node`), publicando el resultado en `/radar_data`. Mientras hay un escaneo en curso ignora nuevos triggers.
+
+```bash
+# Nodo que espera el trigger
+ros2 run state_machine active_ptu_radar
+# Iniciar un escaneo
+ros2 topic pub --once /start_scan std_msgs/msg/Bool "{data: true}"
+```
+
+> **Nota:** actualmente `active_ptu_radar` falla al arrancar (`NameError`): usa `ANGLE_MIN_PTU_PAN` y `WAIT_TIMEOUT_SERVER`, cuyo import desde `radar_package.parametros` está comentado.
+
+## 📹 Grabación y Reproducción de Rosbags
+
+### Reproducir datos (.db3)
+
+```bash
+# Reproducción simple
+ros2 bag play UC_SmartFarmRadar/datos/<nombre_carpeta>/<nombre_archivo>.db3
+
+# Reproducción en bucle
+ros2 bag play --loop UC_SmartFarmRadar/datos/<nombre_carpeta>/<nombre_archivo>.db3
+```
+
+### Grabar datos
+
+```bash
+# Grabar todos los tópicos activos en una ubicación específica
+ros2 bag record -a -o ~/Desktop/magister_ws/UC_SmartFarmRadar/datos/<nombre_de_la_medicion>
+```
+
+## ⚙️ Configuración del Entorno y Red
+
+### Configuración de Red para el Radar
+
+Para garantizar la comunicación Ethernet con el PhaserX:
+1. Ve a **Settings → Network → Wired**.
+2. Añade o edita un perfil en la pestaña **IPv4**.
+3. Selecciona la opción **Shared to other computers**. Esto asignará dinámicamente una IP al puerto Ethernet.
+
+
+### Carga Automática de Entorno (`~/.bashrc`)
+Para evitar ejecutar `source` manualmente en cada terminal modifica las variables de entorno añadiendo las siguientes líneas a tu archivo `~/.bashrc` con `nano ~/.bashrc`:
+
+```bash
+# cargar entorno base de ROS 2 Humble
+#source ~/ros2_humble/install/setup.bash # compilada desde código fuente
+source /opt/ros/humble/setup.bash # APT
+# cargar workspace del proyecto (con validación de existencia)
+if [ -f ~/Desktop/magister_ws/UC_SmartFarmRadar/install/setup.bash ]; then
+    source ~/Desktop/magister_ws/UC_SmartFarmRadar/install/setup.bash
+fi
 ```
 
 ### Herramientas utiles para desarrollador
-- Visual Studio Code
-- tmux
+- **VS Code** (Entorno de desarrollo)
+- **tmux** (Gestión de múltiples terminales)
+- **PuTTY** Pruebas directas por terminal serial con el PTU
 
-Para establecer comunicación de forma correcta con el radar se debe establecer un perfil en settings -> network -> wired -> + -> IPV4 -> shared to other computers -> add
-
-De esta forma se le estara asignando una ip al puerto
-
-### Pun-tilt
-mientras tanto se ha controlador por medio del terminal serial `putty`
+Para más información leer también [QUICKSTART](./QUICKSTART.md)
 
 
+## Repositorio Github asociado
 
+- `https://github.com/RAL-UC/ral_bunker`

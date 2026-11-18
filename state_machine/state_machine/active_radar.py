@@ -1,119 +1,128 @@
 #!/usr/bin/env python3
-import rclpy
-from rclpy.node import Node
-from rclpy.action import ActionClient
-from radar_msg.msg import RadarData
-from radar_msg.action import Beamform
-from radar_package.parametros import *
+import rclpy # ros2 
+from rclpy.node import Node # clase nodo de ros2
+from rclpy.action import ActionClient # acciones de ros2
+from radar_msg.msg import RadarData # mensaje de radar personalizado
+from radar_msg.action import RadarBeamform # accion de beamforming
 
-class BeamformRepeat(Node):
+# nodo que permite ejecutar acciones de escaneo beamforming de radar
+class RadarScan(Node):
     def __init__(self):
-        super().__init__('radar_call_repeat')
+        super().__init__('radar_scan')
 
-        # Parámetros
-        self.declare_parameter('pan_deg', 0)
-        self.declare_parameter('tilt_deg', 0)
-        self.declare_parameter('repeat', REPEAT_CAPTURE) # -1 para infinitas capturas
-        self.declare_parameter('wait_server_timeout_s', 10.0)
+        # ----------------- Parámetros -----------------
+        self.declare_parameter('repeat', -1) # -1 para infinitas capturas
+        self.declare_parameter('wait_timeout_server_s', 30) # tiempo de espera para conectar el cliente con el servidor
 
-        self.pan_deg = int(self.get_parameter('pan_deg').value)
-        self.tilt_deg = int(self.get_parameter('tilt_deg').value)
-        self.repeat = int(self.get_parameter('repeat').value)
-        self.wait_timeout = float(self.get_parameter('wait_server_timeout_s').value)
-
+        # carga de valores
+        # radar.yaml
+        self.repeat = self.get_parameter('repeat').value
+        self.wait_timeout = self.get_parameter('wait_timeout_server_s').value
+        
         self.infinite = (self.repeat <= 0) # <=0 => infinito
-        self.client = ActionClient(self, Beamform, 'radar_beamform')
+        self.client = ActionClient(self, RadarBeamform, 'radar_beamform')
+        # 10 representa la profundidad de la cola de mensajes
+        self.radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
 
-        self._radar_pub = self.create_publisher(RadarData, 'radar_data', 10)
+        self.current_iter = 0 # numero de escaneos
+        self.busy = False # flag control de estado
 
-        self.current_iter = 0
-        rep_msg = "inf" if self.infinite else str(self.repeat)
-        self.get_logger().info(f"Beamforming a pan={self.pan_deg}°, tilt={self.tilt_deg}° se repetirá {rep_msg}")
         self.start()
 
     def start(self):
-        if not self.client.wait_for_server(timeout_sec=self.wait_timeout):
+        if not self.client.wait_for_server(timeout_sec=self.wait_timeout): # si no logra conectarse apaga el nodo
             self.get_logger().error("Servidor de acción 'radar_beamform' no disponible.")
             rclpy.shutdown()
             return
+        
+        rep_msg = "inf" if self.infinite else str(self.repeat)
+        self.get_logger().info(f"Beamforming: se repetirá {rep_msg} veces")
         self.send_goal()
 
     def send_goal(self):
-        if (not self.infinite) and (self.current_iter > self.repeat):
+        if self.busy: # false no esta ocupado, true esta ocupado
+            return
+
+
+        if (not self.infinite) and (self.current_iter >= self.repeat): # se cumplieron todas las repeticiones
             self.get_logger().info("Todas las repeticiones completadas.")
             rclpy.shutdown()
             return
 
-        goal = Beamform.Goal()
-        goal.pan_deg = self.pan_deg
-        goal.tilt_deg = self.tilt_deg
+        # actualizacion de estado y reporte
+        self.busy = True
+        # Se calcula el intento actual solo para el log (sin modificar la variable de clase)
+        attempt_num = self.current_iter + 1
+        tag = f"{attempt_num}/{self.repeat}" if not self.infinite else f"[{attempt_num}]"
+        #self.get_logger().info(f"{tag} radar callback en pan={self.pan_deg}°, tilt={self.tilt_deg}°")
+        self.get_logger().info(f"[Action] {tag} radar beamforming")
 
-        self.current_iter += 1
-        tag = f"[{self.current_iter}/{self.repeat}]" if not self.infinite else f"[{self.current_iter}]"
-        self.get_logger().info(f"{tag} radar call → pan={self.pan_deg}°, tilt={self.tilt_deg}°")
+        goal = RadarBeamform.Goal() # objetivo
 
+        # se envia el objetivo y se registra el callback de retroalimentacion
         send_future = self.client.send_goal_async(goal, feedback_callback=self.feedback_cb)
-        send_future.add_done_callback(self.goal_response_cb)
+        send_future.add_done_callback(self.goal_response_cb) # verificacion de si el servidor aceptó o rechazó la meta solicitada
 
     def feedback_cb(self, fb):
-        msg = getattr(fb.feedback, 'status', 'ejecutando…')
+        msg = getattr(fb.feedback, 'status', 'ejecutando…') # si no detecta el campo status devuelve ejecutando
         self.get_logger().info(f"[Feedback] {msg}")
 
     def goal_response_cb(self, future):
-        try:
-            goal_handle = future.result()
-        except Exception as e:
-            self.get_logger().error(f"Error al enviar goal: {e!r}")
-            # en bucle infinito, reintenta; si no, termina
-            if self.infinite:
-                self.get_logger().warn("Reintentando…")
-                self.send_goal()
-            else:
-                rclpy.shutdown()
+        exc = future.exception() # guarda el error que haya ocurrido
+        if exc:
+            self.busy = False # liberar proceso
+            self.get_logger().error(f'Error al enviar goal Radar: {exc!r}')
             return
 
-        if not goal_handle.accepted:
-            self.get_logger().warn("Goal rechazado por el servidor.")
-            self.send_goal() # intenta siguiente iteración
+        # goal handle, manejador de meta
+        # indica si el servidor aceptó la meta
+        gh = future.result()
+        if gh is None or not gh.accepted:
+            self.busy = False # liberar proceso
+            self.get_logger().warn('Goal Radar rechazado por el servidor.')
             return
 
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self.result_cb)
+        # solicitar el resultado final de la acción al servidor de forma asíncrona
+        # definir qué hacer cuando la tarea termine
+        res_fut = gh.get_result_async()
+        res_fut.add_done_callback(self.result_cb)
 
     def result_cb(self, future):
-        try:
-            result = future.result().result
-        except Exception as e:
-            self.get_logger().error(f"Error recibiendo resultado: {e!r}")
-            if self.infinite:
-                self.get_logger().warn("Reintentando…")
-                self.send_goal()
-            else:
-                rclpy.shutdown()
+        exc = future.exception() # guarda el error que haya ocurrido
+        if exc:
+            self.busy = False # liberar proceso
+            self.get_logger().error(f'Error recibiendo resultado Radar: {exc!r}')
+            self.send_goal()
             return
 
-        ok = getattr(result, 'success', True)
-        message = getattr(result, 'message', '')
-        if ok:
-            rd = getattr(result, 'radar_data', None)
-            if rd is not None:
-                # <- NUEVO: publicar la medición recibida
-                self._radar_pub.publish(rd)
-                self.get_logger().info(
-                    f"Beamforming OK. {message} | publicado RadarData {rd.rows}x{rd.cols} (dtype={rd.dtype})"
-                )
-            else:
-                self.get_logger().info(f"Beamforming OK. {message} (sin radar_data en Result)")
-        else:
-            self.get_logger().warn(f"Beamforming falló. {message}")
+        # valida la respuesta final devuelta por el servidor
+        res = future.result().result
+        if not res.success:
+            self.busy = False # liberar proceso
+            self.get_logger().warn(f'Beamforming falló: {res.message}')
+            self.send_goal()
+            return
 
-        # al terminar un goal → lanzar siguiente repetición
+        self.current_iter += 1
+        # extraer datos de radar
+        rd = getattr(res, 'radar_data', None)
+        if rd is not None:
+            #rd.header.stamp = self.get_clock().now().to_msg() # ya vienen con una marca de tiempo
+            # se realiza doble publicación por accion y luego por mensaje
+            self.radar_pub.publish(rd)
+            self.get_logger().info(
+                f'Beamforming OK | Publicado RadarData {rd.rows}x{rd.cols}')
+        else:
+            self.get_logger().info(f'Beamforming OK ({res.message}) sin radar_data')
+
+        # Liberar estado y solicitar la siguiente iteración
+        self.busy = False
         self.send_goal()
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BeamformRepeat()
+    node = RadarScan()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -122,7 +131,6 @@ def main(args=None):
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()

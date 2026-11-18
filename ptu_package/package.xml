@@ -3,19 +3,20 @@
 <package format="3">
   <name>ptu_package</name>
   <version>0.0.0</version>
-  <description>Controlador  para el dispositivo PTU por puerto serial</description>
+  <description>Creación de rutinas del PTU para capturas de radar</description>
   <maintainer email="dammr@uc.cl">dammr</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT License</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-
-  <depend>rclcpp</depend>
-  <depend>std_msgs</depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>radar_msg</exec_depend>
+  <exec_depend>action_msgs</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>

@@ -1,0 +1,86 @@
+/**: # debe ser el mismo nombre del nodo
+  ros__parameters:
+    # ====================== GPS ======================
+    # CONECTIVIDAD / RED
+    # GPS Septentrio Mosaic X5 (Ardusimple)
+    # URL típica: 192.168.3.1
+    # https://www.ardusimple.es/how-to-configure-septentrio-mosaic-x5-and-mosaic-h/
+    # gps_uri: "ip:192.168.3.1"
+
+    # ====================== PHASER ======================
+    # CONECTIVIDAD / RED
+    # Conexión por VNC Viewer a phaser.local
+    # clave: analog
+    # Profiles distintos para componentes conectados por Ethernet o USB-Ethernet
+    sdr_uri: "ip:phaser.local:50901" # ej: 192.168.2.50, 192.168.2.60, 192.168.2.40
+    phaser_uri: "ip:phaser.local"
+
+    # HARDWARE
+    element_spacing_m: 0.014 # espaciamiento entre parches de antena receptora (14 mm)
+
+    # ADQUISICIÓN 
+    sample_rate_hz: 0.6e6 # frecuencia de muestreo 600 kHz
+    rx_rf_bandwidth_hz: 18.0e6 # filtro analógico antialias de Rx, esquina en banda base = 9 MHz (valor por defecto del Pluto)
+    tx_rf_bandwidth_hz: 18.0e6 # filtro analógico de Tx que elimina las imágenes del DAC, esquina = 9 MHz
+
+    # FRECUENCIAS DE SEÑALES DE TRABAJO
+    # frecuencia intermedia (IF) del PlutoSDR 1.4 GHz en vez de 2.2 GHz
+    # LO del CN0566 = output_freq_hz + center_freq_hz + signal_freq_hz, así que la RF sigue en 10.0–10.5 GHz
+    # y el LO barre 11.4001–11.9001 GHz (antes 12.2001–12.7001 GHz)
+    # ventajas:
+    #   - el LO queda dentro del rango garantizado del VCO HMC735 (10.5–12.2 GHz); con 2.2 GHz la rampa necesitaba
+    #     ≈ 13.5 V de VTUNE (sobre los 13 V especificados) y con temperatura alta podía perder el enganche al final del chirp
+    #   - 1.4 GHz queda entre las bandas del GPS del robot movil (L5/E5/L2 ≈ 1.16–1.25 GHz y L1/E1 ≈ 1.56–1.61 GHz)
+    #   - los baluns de IF (TC1-1-13M+, 4.5–3000 MHz) pierden algo menos que cerca de su borde superior
+    # desventajas:
+    #   - la fuga del LO por el mezclador de TX (11.4–11.9 GHz) cae dentro de la banda de paso del filtro BFCN-1052+
+    #     y más cerca del corte del LFCW-1062+: se atenua menos, pero aún continua fuera de banda (no genera blancos falsos)
+    #   - hay que calibrar con la misma IF: usar el mismo valor en cal_rx_lo_hz (calibracion.yaml)
+    center_freq_hz: 1.4e9           # 1.4 GHz frecuencia de operacion PlutoSDR (antes 2.2e9)
+    signal_freq_hz: 100e3           # 100 kHz señal transmitida
+    output_freq_hz: 10e9            # 10 GHz salida radiofrecuencia
+    bandwidth_hz: 500e6             # 500 MHz ancho de banda del chirp
+    num_steps: 500                  # numero de pasos en que se dividira el chirp
+    ramp_time_us: 500               # duración chirp us, se aconseja tener un paso por us
+    ramp_time_s: 0.0005             # 500 us en segundos -> ramp_time_us/1e6
+    speed_of_light: 3e8             # velocidad de la luz m/s
+    wavelength_m: 0.03              # longitud de onda 0.3m (30cm)-> C / output_freq
+    slope_hz_per_s: 1.0e12          # variación de la frecuencia por unidad de tiempo (ancho de banda total) / (duración de la rampa)s = 1x10^12
+
+    # se utiliza desplazamiento de fase en un rango pequeño en base a la frecuencia central
+    # introduce un error el cual es pequeño 
+    signal_freq_phaser_rx_hz: 10.25e9 # rango 10–10.5 GHz
+
+    # GANANCIAS
+    rx_gain_chan0: 70 # rango [-3, 70]
+    rx_gain_chan1: 70 # rango [-3, 70]
+    tx_gain_chan0: -88 # ganancia en la transmision valor entre 0 y -88 CANAL 0 -> Tx1
+    tx_gain_chan1: 0 # ganancia en la transmision valor entre 0 y -88 CANAL 1 -> Tx2
+
+    # OFFSET DE DISTANCIA
+    # podria reajustarse segun el calculo y aproximacion dada a los bins
+    # fbeat = 2SR/c = 6666 Hz
+    # R distancia al objetivo
+    # 6666 Hz por metro 10760/6666 = 1.614 metros de offset en medicion de distancia 
+    range_offset_hz: 10760.0 # offset experimental
+
+    # TIMING RADAR
+    # Intervalo de Repetición de Pulso (PRI) -> tiempo entre chirridos
+    # cada cuánto ocurrirá el ciclo TX/RX+espera -> cada cuadro coincide con un chirrido
+    pri_ms: 1.5                     # 500 µs + 1 ms d-> duración chirp + margen
+    num_chirps: 1                   # chirridos por cuadro (uso con potencias de 2)
+    percent_ignore_samples: 0.1     # se ignora el 10% de la cantidad de muestras
+    begin_offset_time_s: 0.00005    # 10% de 500 µs (30 muestras) omitidos para el comienzo de la consideracion de datos para evitar no linealidades, transitorio o desfase
+    good_ramp_samples: 270          # cantidad de muestras útiles -> int((RAMP_TIME_S-BEGIN_OFFSET_TIME) * SAMPLE_RATE) = (500 µs - 50 µs) * 600 kHz; si se cambia begin_offset_time_s, recalcular
+
+    # BEAM RADAR
+    # considerar patron de transmision de antena transmisora, diagrama polar con 24° de apertura caida a -3db
+    # mediciones en grados
+    fov_deg: 160
+    rbeam_angledeg_min: -80
+    rbeam_angledeg_max: 80
+    rbeam_angledeg_step: 2
+
+    # CONTROL DE EJECUCIÓN
+    repeat_capture: -1 # cantidad de capturas tomadas con el radar activo
+    wait_timeout_server_s: 30 # [s] tiempo de conexion a clientes

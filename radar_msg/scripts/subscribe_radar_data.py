@@ -7,21 +7,14 @@ from radar_msg.msg import RadarData
 class RadarDataSubscriber(Node):
     def __init__(self):
         super().__init__('subscribe_radar_data')
-        self.create_subscription(
-            RadarData,
-            'radar_data',
-            self.listener_callback,
-            10
-        )
+        self.create_subscription(RadarData, 'radar_data', self.listener_callback, 10)
 
     def listener_callback(self, msg: RadarData):
         # Reconstruir numpy array
         arr = np.array(msg.data, dtype=msg.dtype)
         arr = arr.reshape((msg.rows, msg.cols))
         # Mostrar info
-        self.get_logger().info(
-            f'Recibido RadarData: {arr.shape}, dtype={arr.dtype}'
-        )
+        self.get_logger().info(f'Recibido RadarData: {arr.shape}, dtype={arr.dtype}')
         # Muestra los primeros 5 valores
         flat = arr.flatten()
         preview = ', '.join(f'{v:.2f}' for v in flat[:5])
